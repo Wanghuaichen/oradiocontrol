@@ -3,7 +3,7 @@
 ###############################################################################
 
 ## General Flags
-PROJECT = ORC_rx
+PROJECT = ORC
 MCU = atmega88
 TARGET = $(PROJECT).elf
 CC = 
@@ -25,7 +25,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
-LDFLAGS +=  -Wl,-Map=$(PROJECT).map
+LDFLAGS +=  -Wl,-Map=$*.map
 
 
 ## Intel Hex file production flags
@@ -37,40 +37,51 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = $(PROJECT).o 
+OBJECTS = cc2500.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
 
 OBJDUMP=avr-objdump
+OBJCOPY=avr-objcopy
 SIZE=avr-size
 
 ## Build
-all: $(TARGET) $(PROJECT).hex $(PROJECT).eep $(PROJECT).lss## Compile
-$(PROJECT).o: src/$(PROJECT).cpp
+all: rx tx rxst txst ## $(PROJECT).eep $(PROJECT).lss	$(PROJECT).stats	## Compile
+
+tx: $(PROJECT)_tx.hex
+	
+rx: $(PROJECT)_rx.hex
+
+rxst: $(PROJECT)_rx.stats $(PROJECT)_rx.lss
+
+txst: $(PROJECT)_tx.stats $(PROJECT)_tx.lss
+
+##Compile
+%.o: src/%.cpp					
 	$(CPP) $(INCLUDES) $(CFLAGS) -c  $<
 
-stats: $(TARGET)
-	$(OBJDUMP) -h $(TARGET)
-	$(SIZE) $(TARGET) 
-
 ##Link
-$(TARGET): $(OBJECTS)
-	 $(CPP) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
+%.elf: %.o $(OBJECTS)
+	$(CPP) $(LDFLAGS) $^ $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $@
 
-%.hex: $(TARGET)
-	avr-objcopy -O ihex $(HEX_FLASH_FLAGS)  $< $@
+%.hex: %.elf
+	$(OBJCOPY) -O ihex $(HEX_FLASH_FLAGS)  $< $@
 
-%.eep: $(TARGET)
-	-avr-objcopy $(HEX_EEPROM_FLAGS) -O ihex $< $@ || exit 0
+%.eep: %.elf
+	$(OBJCOPY) $(HEX_EEPROM_FLAGS) -O ihex $< $@ || exit 0
 
-%.lss: $(TARGET)
-	avr-objdump -h -S $< > $@
+%.lss: %.elf
+	$(OBJDUMP) -h -S $< > $@
+
+%.stats: %.elf
+	$(SIZE) $< > $@
+	$(OBJDUMP) -h $< >> $@
 
 ## Clean target
 .PHONY: clean
 clean:
-	-rm -rf $(OBJECTS) $(PROJECT).elf dep/* $(PROJECT).hex $(PROJECT).eep $(PROJECT).lss $(PROJECT).map
+	-rm -rf *.o *.elf *.stats dep/* *.hex *.eep *.lss *.map
 
 
 ## Other dependencies

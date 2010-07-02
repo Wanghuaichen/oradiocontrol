@@ -67,9 +67,6 @@ noch ein Mode:
 //PD6 Ant
 //PD7
 
-#define SET_BIT(port,bit)  (port |=  (1<<bit))
-#define RES_BIT(port,bit)  (port &= (uint8_t)~(1<<bit))
-
 #define OUT_B_SPI_SS PORTB2
 #define OUT_B_SPI_MISO PORTB4
 #define OUT_B_SPI_SCK PORTB5
@@ -93,65 +90,7 @@ noch ein Mode:
 #define LED_OFF SET_BIT(PORTD, OUT_D_LED)
 #define LED_ON RES_BIT(PORTD, OUT_D_LED)
 
-#include "ORC.h"
-typedef PROGMEM void (*FuncP_PROGMEM)(void);
-
-prog_uint8_t APM cc2500InitValue[] =
-{
-  0x29,     //  IOCFG2     (Default) CHIP_RDY,
-  0x2e,     //  IOCFG1     (Default) 3-state,
-  0x6,      //  IOCFG0     Asserts when sync word has been sent / received,
-            //             and de-asserts at the end of the packet. In RX,
-            //             the pin will de-assert when the optional address,
-            //             check fails or the RX FIFO overflows.,
-            //             In TX the pin will de-assert if the TX FIFO underflows.,
-  0x7,      //  FIFOTHR7   Default Tx:33 Rx:32,
-  0xd3,     //  SYNC1      Sync word, high byte
-  0x91,     //  SYNC0      Sync word, low byte
-  0x3d,     //  PKTLEN     Indicates the packet length when fixed length packets are enabled.,
-            //             If variable length packets are used, this value indicates the
-            //             maximum length packets allowed. (61 Bytes),
-  0xC,      //  PKTCTRL1   (Default) jetzt autoflush
-  0x5,      //  PKTCTRL0   Whitening off,
-            //             CRC calculation in TX and CRC check in RX enabled,
-            //             Variable length packets, packet length configured by the first byte
-            //             after sync word,
-  0x0,      //  ADDR       (Default) DEVICE_ADDR[7:0], wird nicht benutzt
-  0x0,      //  CHANNR     CHAN[7:0],
-  0x9,      //  FSCTRL1    Frequency synthesizer control,
-  0x0,      //  FSCTRL0    (Default) Frequency synthesizer control,
-  0x5c,     //  FREQ2      Frequency control word, high byte
-  0x80,     //  FREQ1      Frequency control word, middle byte
-  0x0,      //  FREQ0      Frequency control word, low byte (26MHz); unterster Kanal 2,405 GHz (2400-2483.5 MHz ISM/SRD band)
-  0x5b,     //  MDMCFG4    Modem configuration, Datarate DRATE_E -> 0xb
-  0xf8,     //  MDMCFG3    DRATE_M 0xf8 ergibt bei 26MHz -> 99975 Baud also 100kBaud
-  0x3,      //  MDMCFG2    2-FSK, 30/32 sync word bits detected
-  0x23,     //  MDMCFG1    4 preamble bytes, 2 bit exponent of channel spacing (3)
-  0xf8,     //  MDMCFG0    (Default)channel spacing, 399902 Hz ergibt max  2,5069 GHz es sollten nur 205 Kanäle benutzt werden
-  0x50,     //  DEVIATN    Modem deviation setting,
-  0x7,      //  MCSM2      Main Radio Control State Machine configuration,
-  0x30,     //  MCSM1      Main Radio Control State Machine configuration,
-  0x18,     //  MCSM0      Main Radio Control State Machine configuration,
-            //             Automatically calibrate when going to RX or TX, or back to IDLE When going from IDLE to RX or TX (or FSTXON)
-            //             Programs the number of times the six-bit ripple counter mustexpire after XOSC has stabilized before CHP_RDYn goes low
-            //             Approx. 149 – 155 μs  2 (10) 64
-  0x16,     //  FOCCFG     Frequency Offset Compensation configuration,
-  0x6c,     //  BSCFG      (Default) Bit Synchronization configuration,
-  0x43,     //  AGCCTRL2   AGCCTRL2 – AGC control, (01) The highest gain setting can not be used
-  0x58,     //  AGCCTRL1   AGCCTRL1 – AGC control, (01) 6 dB increase in RSSI value; 8 (1000) Absolute carrier sense threshold disabled
-  0x91,     //  AGCCTRL0   (Default) AGCCTRL0 – AGC control,
-  0x87,     //  WOREVT1    (Default) High byte Event0 timeout,
-  0x6b,     //  WOREVT0    (Default) Low byte Event0 timeout,
-  0xf8,     //  WORCTRL    (Default) Wake On Radio control,
-  0x56,     //  FREND1     (Default) Front end RX configuration,
-  0x10,     //  FREND0     (Default) Front end TX configuration,
-  0xa9,     //  FSCAL3     (Default) Frequency synthesizer calibration,
-  0x0a,     //  FSCAL2     (Default) Frequency synthesizer calibration,
-  0x0,      //  FSCAL1     Frequency synthesizer calibration,
-  0x11,     //  FSCAL0     Frequency synthesizer calibration,
-  0x41,     //  RCCTRL1    (Default) RC oscillator configuration,
-  0x0,      //  RCCTRL0    (Default) RC oscillator configuration,
-};
+#include "OCR_rx.h"
 
 
 /* EEMEM */ EEData eeprom;
@@ -244,11 +183,16 @@ void set_Canal_8(void){
   SET_BIT(PORTC, OUT_C_CANAL8);
 }
 
+void set_Canal_Off(void){
+  RES_BIT(PORTC, OUT_C_CANAL8);
+}
+
 void set_Canal_8_Q(void){
   RES_BIT(PORTC, OUT_C_CANAL7);
   RES_BIT(PORTC, OUT_C_CANAL8);
   SET_BIT(PORTC, OUT_C_CANAL8);
 }
+
 
 FuncP_PROGMEM APM set_CanalOut[] = {
   set_Canal_1,
@@ -258,7 +202,8 @@ FuncP_PROGMEM APM set_CanalOut[] = {
   set_Canal_5,
   set_Canal_6,
   set_Canal_7,
-  set_Canal_8
+  set_Canal_8,
+  set_Canal_Off
 };
 
 FuncP_PROGMEM APM set_CanalOutQ[] = {
@@ -270,6 +215,7 @@ FuncP_PROGMEM APM set_CanalOutQ[] = {
   set_Canal_6_Q,
   set_Canal_7_Q,
   set_Canal_8_Q,
+  set_Canal_Off
 };
 
 
@@ -307,6 +253,7 @@ ISR(TIMER1_COMPA_vect)                  //8MHz pulse generation
   if(output.pulses2MHz[cannal] == 0)
   {
     TIMSK1 &= ~(1<<OCIE1A);                   // Interrupt aus
+    OCR1A = 5000u * 8u;                       // 5ms Pause
     set_sleep_mode(SLEEP_MODE_STANDBY);       // Wenn Timer1 fertig
   }
   output.chanPtr = cannal;
@@ -325,7 +272,7 @@ void SPI_MasterInit(void)
 uint8_t SPI_MasterTransmit(uint8_t cData)
 {
   PORTB &= ~(1<<OUT_B_SPI_SS);
-  while(PORTD & (1<<INP_D_CC2500_GDO2))                   // warten bis bereit
+  while(PIND & (1<<INP_D_CC2500_GDO2))                   // warten bis bereit
     ;
   /* Wait for transmission complete */
   /* Start transmission */
@@ -333,18 +280,6 @@ uint8_t SPI_MasterTransmit(uint8_t cData)
   while(!(SPSR & (1<<SPIF)))
     ;
   return(SPDR);
-}
-
-void SPI_MasterWriteReg(uint8_t reg, int8_t c)
-{
-  SPI_MasterTransmit(reg);
-  SPI_MasterTransmit(c);
-}
-
-int8_t SPI_MasterReadReg(uint8_t reg)
-{
-  SPI_MasterTransmit(reg);
-  return(SPI_MasterTransmit(CC2500_SNOP));
 }
 
 void cc2500_Init(void)
@@ -357,7 +292,7 @@ void cc2500_Init(void)
   PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
   _delay_us(40);                    // warten 40us
   PORTB &= ~(1<<OUT_B_SPI_SS);      // SS setzen
-  while(PORTD & (1<<INP_D_CC2500_GDO2))          //CHIP_RDY, warten bis bereit
+  while(PIND & (1<<INP_D_CC2500_GDO2))          //CHIP_RDY, warten bis bereit
       ;
 
   SPI_MasterTransmit(CC2500_WRITE_BURST);
@@ -373,6 +308,11 @@ void cc2500_Init(void)
 
 void setupPulsesPPM_quad()
 {
+  if(!(TIFR1 & (1<<OCF1A)))
+  {
+    return;               // Noch gar nicht fertig
+  }
+
   OCR1A = 500 * 8;        // in 500us beginnen
   TCNT1 = 0;
 
@@ -381,13 +321,8 @@ void setupPulsesPPM_quad()
   output.pulses2MHz[j++]=(uint16_t)300 * 8;
   for(uint8_t i=0;i<8;i++)
   {
-    int32_t v = output.chan_1us[i];
-                                      // 512 -> 2ms, 0 -> 1,5ms, -512 -> 1ms
-//    v = v*78125l/10000l + 1500*8;    // 512 -> 0,5ms -> 4000 -> 7,8125
-    v = output.chan_1us[i] * 8 - 300 * 8;
-    output.pulses2MHz[j++]=(uint16_t)v;
+    output.pulses2MHz[j++] = output.chan_1us[i] * 8 - 300 * 8;
     output.pulses2MHz[j++]=(uint16_t)300 * 8;
-//    pulses2MHz[j++]=300*8;
   }
   output.pulses2MHz[j]=0;
   output.chanPtr = 0;
@@ -398,6 +333,11 @@ void setupPulsesPPM_quad()
 
 void setupPulsesPPM()
 {
+  if(!(TIFR1 & (1<<OCF1A)))
+  {
+    return;               // Noch gar nicht fertig
+  }
+
   OCR1A = 500 * 8;        // in 500us beginnen (je nach Kanal)
   TCNT1 = 0;
 
@@ -412,61 +352,11 @@ void setupPulsesPPM()
   set_sleep_mode(SLEEP_MODE_IDLE);
 }
 
-uint8_t get_RxCount(void)                   // Anzahl Bytes im FIFO
-{
-  SPI_MasterTransmit(0xfb);
-  return(SPI_MasterTransmit(0));
-}
-
-inline void cc2500FlushData(void)
-{
-  SPI_MasterTransmit(CC2500_SFRX);           // Flush the RX FIFO buffer
-}
-
-void cc2500_RxOn(void)
-{
-//  SPI_MasterWriteReg(CC2500_FSCTRL0, 0xf2);  // Korrektur schreiben
-  cc2500FlushData();                          // Flush the RX FIFO buffer
-  SPI_MasterTransmit(CC2500_SRX);            // Enable RX
-  RES_BIT(EIFR, INTF0);
-  SET_BIT(EIMSK, INT0);                       // INT0 ein
-}
-
 void cc2500_RxChanOn(uint8_t chan)
 {
   state.actChanIdx = chan;
   SPI_MasterWriteReg(CC2500_CHANNR, eeprom.bind.corona.chan[chan]);
   cc2500_RxOn();
-}
-
-uint8_t get_Data()
-{
-  SPI_MasterTransmit(0xbf);
-  return(SPI_MasterTransmit(CC2500_SNOP));
-}
-
-void cc2500ReadBlock(int8_t *p, uint8_t n)
-{
-  while(n--)
-    *p++ = SPI_MasterTransmit(CC2500_SNOP);
-}
-
-void setFrequencyOffset(void)
-{
-  int8_t freqoff, fsctrl;
-  int16_t freq;
-
-  freqoff = SPI_MasterReadReg(CC2500_FREQEST | CC2500_READ_BURST);
-  if(freqoff)
-  {
-    fsctrl = SPI_MasterReadReg(CC2500_FSCTRL0 | CC2500_READ_SINGLE);
-    freq = freqoff + fsctrl;
-    if(freq > 0x7f)
-      freq = 0x7f;
-    else if(freq < -0x80)
-      freq = -0x80;
-    SPI_MasterWriteReg(CC2500_FSCTRL0, (int8_t)freq);
-  }
 }
 
 void setAnt(bool ant)
@@ -545,6 +435,14 @@ void setTimeout(void)
   state.timeOut = false;
 }
 
+void setFailSafe(void)
+{
+  for(uint8_t i = 0;i < 8;++i)
+  {
+    output.chan_1us[i] = eeprom.failSafe.failSafePos[i];
+  }
+}
+
 void readChannalData(void)
 {
   uint8_t i, data, lqi;
@@ -595,6 +493,7 @@ void readChannalData(void)
      }
   }
   channel[state.actChanIdx].lqi = lqi & 0x7f;
+//  if((eeprom_read_dword(&((EEData *)0)->bind.corona.id) == id) && (lqi & 0x80))
   if((eeprom.bind.corona.id == id) && (lqi & 0x80))
   {
     setFrequencyOffset();
@@ -643,12 +542,13 @@ void processData(void)                //
     if(state.timeOut)
     {
       setNewRxPara();
+      setupPulsesPPM();                    // Ausgänge aktivieren
     }
 }
 
 bool check_key(void)
 {
-  if(PORTD & (1 << INP_D_KEY))
+  if(PIND & (1 << INP_D_KEY))
     return false;
   return true;
 }
@@ -699,6 +599,9 @@ int main(void)
 // Timer1 8MHz   Servoausgänge
   TCCR1A = (0 << WGM10);
   TCCR1B = (1 << WGM12) | (1 << CS10);      // CTC OCR1A, 8MHz
+  TCNT1 = 0;
+  OCR1A = 500 * 8;        // in 500us beginnen
+
 
 // Timer2 30ms für Timeout
   TCCR2A = 0;
@@ -725,6 +628,7 @@ int main(void)
   else
     cc2500_RxChanOn(0);
   set_sleep_mode(SLEEP_MODE_IDLE);
+  setFailSafe();
 //  wdt_enable(WDTO_30MS);
   while(1){
     sleep_mode();                   //    warten bis was empfangen (Interrupt)

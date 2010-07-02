@@ -54,64 +54,24 @@ template<class t> inline t min(t a, t b){ return a<b?a:b; }
 /// liefert das Maximum der Argumente
 template<class t> inline t max(t a, t b){ return a>b?a:b; }
 
-typedef struct t_BindDataCor
-{
-  uint8_t   chan[3];          // Funkkanäle
-  uint32_t  id;              // eindeutige ID
-}__attribute__((packed)) BindDataCor;
+typedef PROGMEM void (*FuncP_PROGMEM)(void);
 
-typedef struct t_BindDataNg
-{
-  uint8_t   chan[64];         // Funkkanäle die zum Jumpen benutzt werden
-  uint8_t   step;             // Sprungweite
-  uint32_t  id;              // eindeutige ID
-}__attribute__((packed)) BindDataNg;
+extern void SPI_MasterInit(void);
+extern uint8_t SPI_MasterTransmit(uint8_t);
+extern void SPI_MasterWriteReg(uint8_t, int8_t);
+extern int8_t SPI_MasterReadReg(uint8_t);
+extern void cc2500_Init(void);
+extern uint8_t get_RxCount(void);
+extern void cc2500FlushData(void);
+extern void cc2500_RxOn(void);
+extern void cc2500ReadBlock(int8_t *, uint8_t);
+extern void setFrequencyOffset(void);
+extern uint8_t get_Data(void);
 
-typedef union t_BindData
-{
-  BindDataCor corona;
-  BindDataNg  ng;
-}__attribute__((packed)) BindData;
+extern prog_uint8_t APM cc2500InitValue[41];
 
-typedef struct t_FailSafeData
-{
-  uint8_t   failSafeMode[8];
-  uint16_t  failSafePos[8];
-}__attribute__((packed)) FailSafeData;
+#define SET_BIT(port,bit)  (port |=  (1<<bit))
+#define RES_BIT(port,bit)  (port &= (uint8_t)~(1<<bit))
 
-typedef struct t_EEData
-{
-  uint8_t       typ;
-  BindData      bind;
-  FailSafeData  failSafe;
-}__attribute__((packed)) EEData;
 
-typedef struct t_State
-{
-  bool      bindmode:1;
-  bool      ngmode:1;         // new generation mode
-  bool      timeOut:1;
-  bool      scan:1;
-  bool      lowLqiMode:1;
-  bool      lastRxOkChanIdx:2;
-  uint8_t   actChanIdx:2;        // Eingestellter Kanal
-  uint8_t   actAnt:1;         // Eingestellte Antenne
-  int8_t    actFreqIdx:3;
-  uint8_t   dummy:3;
-  uint8_t   error;
-  uint16_t  errorcount;
-}__attribute__((packed)) State;
-
-typedef struct t_OutputData
-{
-  uint16_t  chan_1us[8];       // Werte aller 8 Kanäle
-  uint16_t  pulses2MHz[18];
-  uint8_t   chanPtr;         // Kanalnummer aktuelle Ausgabe
-}__attribute__((packed)) OutputData;
-
-typedef struct t_ChannelData
-{
-  uint8_t rssi;
-  uint8_t lqi;                // Eigentlich nur 7 Bit
-}__attribute__((packed)) ChannelData;
 /*eof*/
