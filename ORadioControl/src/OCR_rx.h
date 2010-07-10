@@ -7,35 +7,21 @@
 
 #include "ORC.h"
 
-typedef struct t_BindDataCor
+typedef struct t_BindData
 {
-  uint32_t  id;              // eindeutige ID
-  uint8_t   chan[3];          // Funkkanäle
-}__attribute__((packed)) BindDataCor;
-
-typedef struct t_BindDataNg
-{
-//  uint32_t  id;              // eindeutige ID
-//  uint8_t   chan[64];         // Funkkanäle die zum Jumpen benutzt werden
-  uint8_t   step;             // Sprungweite
-}__attribute__((packed)) BindDataNg;
-
-typedef union t_BindData
-{
-  BindDataCor corona;
-  BindDataNg  ng;
+  uint16_t      id;     //sync
+  uint8_t       step;
 }__attribute__((packed)) BindData;
 
 typedef struct t_FailSafeData
 {
-  uint8_t   failSafeMode[8];      // 0 failSafePos, 1 hold, 2 = off
-  uint8_t   failSafeDelay[8];     // Zeit bis failsafepos anspricht
-  uint16_t  failSafePos[8];
+  uint8_t   failSafeMode[2];        // 0 failSafePos, 1 hold, 2 = off
+  uint8_t   failSafeDelay[8];       // Zeit bis failsafepos anspricht
+  uint16_t  failSafePos[8];         // Position bei FailSafe
 }__attribute__((packed)) FailSafeData;
 
 typedef struct t_EEData
 {
-  uint8_t       typ;
   BindData      bind;
   FailSafeData  failSafe;
 }__attribute__((packed)) EEData;
@@ -48,7 +34,8 @@ typedef struct t_State
   bool      scan:1;
   bool      lowLqiMode:1;
   bool      lastRxOkChanIdx:2;
-  uint8_t   actChanIdx:2;        // Eingestellter Kanal
+  uint8_t   RxTimeOut;
+  uint8_t   actChan;        // Eingestellter Kanal
   uint8_t   actAnt:1;         // Eingestellte Antenne
   int8_t    actFreqIdx:3;
   uint8_t   dummy:3;

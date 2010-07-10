@@ -73,5 +73,6 @@ extern prog_uint8_t APM cc2500InitValue[41];
 #define SET_BIT(port,bit)  (port |=  (1<<bit))
 #define RES_BIT(port,bit)  (port &= (uint8_t)~(1<<bit))
 
+#define BINDMODEID 0x1009
 
 /*eof*/

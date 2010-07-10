@@ -21,14 +21,11 @@ prog_uint8_t APM cc2500InitValue[] =
   0x7,      //  FIFOTHR7   Default Tx:33 Rx:32,
   0xd3,     //  SYNC1      Sync word, high byte
   0x91,     //  SYNC0      Sync word, low byte
-  0x3d,     //  PKTLEN     Indicates the packet length when fixed length packets are enabled.,
+  0x2,      //  PKTLEN     Indicates the packet length when fixed length packets are enabled.,
             //             If variable length packets are used, this value indicates the
             //             maximum length packets allowed. (61 Bytes),
   0xC,      //  PKTCTRL1   (Default) jetzt autoflush
-  0x5,      //  PKTCTRL0   Whitening off,
-            //             CRC calculation in TX and CRC check in RX enabled,
-            //             Variable length packets, packet length configured by the first byte
-            //             after sync word,
+  0x44,     //  PKTCTRL0
   0x0,      //  ADDR       (Default) DEVICE_ADDR[7:0], wird nicht benutzt
   0x0,      //  CHANNR     CHAN[7:0],
   0x9,      //  FSCTRL1    Frequency synthesizer control,
@@ -82,7 +79,7 @@ int8_t SPI_MasterReadReg(uint8_t reg)
 
 uint8_t get_RxCount(void)                   // Anzahl Bytes im FIFO
 {
-  SPI_MasterTransmit(0xfb);
+  SPI_MasterTransmit(CC2500_RXBYTES & CC2500_READ_BURST);
   return(SPI_MasterTransmit(0));
 }
 

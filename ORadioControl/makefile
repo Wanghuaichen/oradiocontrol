@@ -4,8 +4,7 @@
 
 ## General Flags
 PROJECT = ORC
-MCU = atmega88
-TARGET = $(PROJECT).elf
+MCU = atmega48
 CC = 
 
 CPP = avr-g++
@@ -58,7 +57,7 @@ rxst: $(PROJECT)_rx.stats $(PROJECT)_rx.lss
 txst: $(PROJECT)_tx.stats $(PROJECT)_tx.lss
 
 ##Compile
-%.o: src/%.cpp					
+%.o: src/%.cpp	
 	$(CPP) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

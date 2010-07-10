@@ -2,7 +2,7 @@
  * Author Josef Glatthaar <josef.glatthaar@googlemail.com>
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
+ * it under the terms of the GNU General Public License version 3 as
  * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
@@ -10,8 +10,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
 
+Probleme:
 bugs:
 todo:
+
+FAQ:
+Was passiert wenn kein PPM- Frame kommt?
+Sender bleibt stehen
 
 done:
 
@@ -67,23 +72,26 @@ done:
 #define LED_OFF SET_BIT(PORTD, OUT_D_LED)
 #define LED_ON RES_BIT(PORTD, OUT_D_LED)
 
+#define FOSC 8000000 // Clock Speed
+#define BAUD 19200
+#define MYUBRR FOSC/16/BAUD-1
+#define FAILSAFETIMER 200             // 2 Sekunden
+
 #include "OCR_tx.h"
 
 
 /* EEMEM */ EEData eeprom;
-uint8_t errorStatus;
 State state;
 OutputData output;
-ChannelData channel[3];
-uint16_t Timer;
-//uint8_t heartbeat;
+volatile uint16_t Timer1ms;
+volatile uint16_t Timer33ms;
 
-
-
-ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)              // Timeout, 1. andere Antenne nehmen 2. anderen Kanal nehmen
+ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)              // Timer 1ms
 {
-  RES_BIT(TIMSK2, OCIE2A);
-  state.timeOut = true;
+//  RES_BIT(TIMSK2, OCIE2A);
+  cli();
+  ++Timer1ms;
+  sei();
 }
 
 ISR(INT0_vect, ISR_NOBLOCK)
@@ -91,34 +99,28 @@ ISR(INT0_vect, ISR_NOBLOCK)
   RES_BIT(EIMSK, INT0);                    // INT0 aus, dient nur zum wecken
 }
 
-ISR(TIMER1_COMPA_vect)                  //8MHz pulse generation
+ISR(TIMER1_CAPT_vect, ISR_NOBLOCK)                  //8MHz capture
 {
-  register uint8_t i, cannal;
+  static uint16_t timer_alt, capture_alt;
+  static uint8_t chanPtr;
+  uint16_t timer1msTemp;
 
-  cannal = output.chanPtr;                    // canal als lokaler Registerwert
-  i = 0;
-  while((TCNT1L < 10) && (++i < 50))  // Timer zu schnell auslesen funktioniert nicht, deshalb i
-    ;
-  if(state.ngmode)
-    if(cannal & 1)
-      (*set_CanalOutQ[cannal / 2])();
-    else
-      PORTC &= ~(1<<OUT_C_CANAL8);
-  else
-  (*set_CanalOut[cannal])();
-
-  sei();
-
-  OCR1A  = output.pulses2MHz[cannal++];
-
-  if(output.pulses2MHz[cannal] == 0)
+  do
   {
-    TIMSK1 &= ~(1<<OCIE1A);                   // Interrupt aus
-    OCR1A = 5000u * 8u;                       // 5ms Pause
-    set_sleep_mode(SLEEP_MODE_STANDBY);       // Wenn Timer1 fertig
+    timer1msTemp = Timer1ms;
   }
-  output.chanPtr = cannal;
-//  heartbeat |= HEART_TIMER2Mhz;
+  while(timer1msTemp != Timer1ms);
+  uint16_t capture = ICR1;
+  if(timer1msTemp - timer_alt > 2)   // Neuer PPM- Frame
+  {
+    TCNT2 = 0;                        // Timer 2 initialisieren
+    chanPtr = 0;
+    state.NewFrame = true;
+  }
+  else if(chanPtr < 8)
+    output.chan_1us[chanPtr++] = (capture - capture_alt) / 8;
+  capture_alt = capture;
+  timer_alt = timer1msTemp;
 }
 
 void SPI_MasterInit(void)
@@ -165,204 +167,50 @@ void cc2500_Init(void)
   while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
   PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
   _delay_us(40);                    // warten 40us wegen SS
+  SPI_MasterWriteReg(CC2500_SYNC0,(unsigned char)eeprom.id);
+  SPI_MasterWriteReg(CC2500_SYNC1,(unsigned char)(eeprom.id >> 8));
 }
 
-void cc2500_RxChanOn(uint8_t chan)
+void setBindMode(void)
 {
-  state.actChanIdx = chan;
-  SPI_MasterWriteReg(CC2500_CHANNR, eeprom.bind.corona.chan[chan]);
-  cc2500_RxOn();
+  SPI_MasterWriteReg(CC2500_SYNC0, (unsigned char)BINDMODEID);
+  SPI_MasterWriteReg(CC2500_SYNC1, (unsigned char)(BINDMODEID >> 8));
+  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(eeprom));
 }
 
-prog_int8_t APM freq[] = {0, -120, +120, +40, -40, -80, 80};
-
-void setNewRxPara(void)
+void setNewChan(void)                // Kanal schreiben und nach FSTXON
 {
-  // Antenne umschalten
-  // die 2 anderen Kanäle probieren Achtung Frametime kann sich ändern!!
-  // auf dem nächsten Kanal alle Frequenzen probieren
-
-
-  setAnt(state.actAnt);               // Antenne wechseln
-  if(state.scan)
-  {
-    if(++state.actFreqIdx == 6)
-    {
-      state.actFreqIdx = 0;
-      if(++state.actChanIdx == 3)
-      {
-        state.actChanIdx = 0;
-      }
-    }
-    SPI_MasterWriteReg(CC2500_FSCTRL0, pgm_read_byte(&freq[state.actFreqIdx]));
-  }
-  else
-  {
-    if(++state.actChanIdx == 3)
-      state.actChanIdx = 0;
-    if(state.actChanIdx == state.lastRxOkChanIdx)
-    {
-      state.scan = true;
-      state.actFreqIdx = 0;
-      SPI_MasterWriteReg(CC2500_FSCTRL0, pgm_read_byte(&freq[state.actFreqIdx]));
-    }
-  }
-  cc2500_RxChanOn(state.actChanIdx);
-}
-
-void readBindData(void)
-{
-  uint8_t lqi;
-
-  SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
-  cc2500ReadBlock((int8_t *)&eeprom.bind, sizeof(eeprom.bind));
-  SPI_MasterTransmit(CC2500_SNOP);      // rssi interessiert hier niemand
-  lqi = SPI_MasterTransmit(CC2500_SNOP);
-  setFrequencyOffset();                 // macht nicht viel Sinn, hat ja funktioniert
-  if((lqi & 0x80) && state.bindmode)
-  {
-    eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
-    state.bindmode = false;
-  }
-}
-
-void setTimeout(void)
-{
-  TCNT2 = 0;
-  TIFR2 = (1<<OCF2A);
-  TIMSK2 = (1<<OCIE2A);
-  state.timeOut = false;
-}
-
-void setFailSafe(void)
-{
-  for(uint8_t i = 0;i < 8;++i)
-  {
-    output.chan_1us[i] = eeprom.failSafe.failSafePos[i];
-  }
-}
-
-void readChannalData(void)
-{
-  uint8_t i, data, lqi;
-  uint32_t id = 0;
-
-  lqi = 0;
-  SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
-  for(i = 0;i < 0x12;++i)
-  {
-    data = SPI_MasterTransmit(CC2500_SNOP);
-    switch(i)
-    {
-      case 0:
-      case 1:
-      case 2:
-      case 3:
-      case 4:
-      case 5:
-      case 6:
-      case 7:
-        output.chan_1us[i] = data;
-        break;
-      case 8:
-      case 9:
-      case 10:
-      case 11:
-        output.chan_1us[(i - 8) * 2] += ((data & 0xf) << 8);             // unteres Nibble
-        output.chan_1us[((i - 8) * 2) + 1] += ((data & 0xf0) << 4);      // oberes Nibble
-       break;
-      case 12:        // ID
-        id = (uint32_t)data;
-        break;
-      case 13:        // ID
-        id += (uint32_t)data << 8;
-        break;
-      case 14:        // ID
-        id += (uint32_t)data << 16;
-        break;
-      case 15:        // ID
-        id += (uint32_t)data << 24;
-        break;
-      case 16:        // RSSI value
-        channel[state.actChanIdx].rssi = data;
-        break;
-      case 17:        // CRC ok; LQI
-        lqi = data;
-        break;
-     }
-  }
-  channel[state.actChanIdx].lqi = lqi & 0x7f;
-//  if((eeprom_read_dword(&((EEData *)0)->bind.corona.id) == id) && (lqi & 0x80))
-  if((eeprom.bind.corona.id == id) && (lqi & 0x80))
-  {
-    setFrequencyOffset();
-    setupPulsesPPM();                    // Wenn alles gut war, Ausgänge aktivieren
-                        // Achtung je nach Kanal Latenz ausgleichen!!!
-    setTimeout();                           // Timeout reseten
-    state.scan = false;
-    state.lastRxOkChanIdx = state.actChanIdx;
-    if((channel[state.actChanIdx].rssi > 80) || (channel[state.actChanIdx].lqi < 5))
-    {
-      state.lowLqiMode = true;
-    }
-    else
-    {
-      state.lowLqiMode = false;
-    }
-  }
-}
-
-void processData(void)                //
-{
-  uint8_t data_lengh;
-
-  if((data_lengh = get_RxCount()))
-  {
-    switch(get_Data())
-    {
-      case 0x7:         // Binden
-        --data_lengh;   // Status gelesen
-        if((data_lengh == 0x9) && (state.bindmode))
-          readBindData();
-        break;
-      case 0x10:        // Normale Daten
-        --data_lengh;   // Status gelesen
-        if(data_lengh == 0x12)
-          readChannalData();
-        break;
-      default:
-        if(errorStatus < 255)
-          ++errorStatus;
-        break;
-    }
-    cc2500FlushData();
-  }
-  else        // CRC war falsch oder timeout
-    if(state.timeOut)
-    {
-      setNewRxPara();
-      setupPulsesPPM();                    // Ausgänge aktivieren
-    }
+  uint16_t tempChan = state.actChan + eeprom.step * 2 + 1;
+  if(tempChan > 205)
+    tempChan -= (205 + 1);
+  state.actChan = tempChan;
+  SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
+  SPI_MasterTransmit(CC2500_SFSTXON);
 }
 
 bool check_key(void)
 {
-  if(PIND & (1 << INP_D_KEY))
-    return false;
-  return true;
+  return(!(PIND & (1 << INP_D_KEY)));
 }
 
 void set_led(void)
 {
-  static uint8_t timer_alt, led_count;
+  static uint16_t timer_alt;
+  static uint8_t led_count;
+  uint16_t timer1msTemp;
 
-  if((timer_alt + 10) < (uint8_t)Timer)
+  do
+  {
+    timer1msTemp = Timer1ms;
+  }
+  while(timer1msTemp != Timer1ms);
+  if(timer1msTemp - timer_alt > 100)
   {
     if(led_count & 1)
       LED_ON;
     else
       LED_OFF;
-    timer_alt = uint8_t(Timer);
+    timer_alt = timer1msTemp;
 
     if((led_count & 0xf) == 0)
     {
@@ -383,6 +231,127 @@ void set_led(void)
   }
 }
 
+void calcNewId(void)
+{
+  do
+  {
+    eeprom.id += TCNT0 + TCNT1 + TCNT2;
+    eeprom.step += eeprom.id;
+    eeprom.step &= 0x7f;
+//    if(eeprom.step > 204)
+//      eeprom.step -= (204 + 1);
+  }
+  while((eeprom.id == 0) || (eeprom.step == 0));
+  eeprom_write_block(&eeprom, 0, sizeof(eeprom));
+}
+
+void cc2500_TxNormOn(void)
+{
+  uint8_t tempPtr = output.chanPtr;
+  if(state.FaileSafeTimer == FAILSAFETIMER)
+  {
+    SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3)
+        & (tempPtr << 2) & 0x40);
+    SPI_MasterWriteReg(CC2500_TXFIFO, (unsigned char)output.chan_1us[tempPtr]);
+  }
+  else if(state.FaileSafeTimer == FAILSAFETIMER - 1)
+  {
+    SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3)
+        & (tempPtr << 2) & 0x80);
+    SPI_MasterWriteReg(CC2500_TXFIFO, (unsigned char)output.chan_1us[tempPtr]);
+  }
+  else
+  {
+    if(tempPtr == 7)
+      SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3)
+          & (tempPtr << 2) & 0xc0);
+    else
+      SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3) & (tempPtr << 2));
+    SPI_MasterWriteReg(CC2500_TXFIFO, (unsigned char)output.chan_1us[tempPtr]);
+  }
+  SPI_MasterTransmit(CC2500_STX);            // Enable TX;
+  if(!output.chanPtr && state.FaileSafeTimer)
+    --state.FaileSafeTimer;
+  ++tempPtr;
+  if(tempPtr > 7)
+    tempPtr = 0;
+  output.chanPtr = tempPtr;
+}
+
+void cc2500_TxBindOn(void)
+{
+  int8_t *p = (int8_t *)&eeprom;
+  for(uint8_t i = 0;i < sizeof(eeprom);++i)
+    SPI_MasterWriteReg(CC2500_TXFIFO, *p++);
+  SPI_MasterTransmit(CC2500_STX);            // Enable TX
+}
+
+void txStateBind(void)
+{
+  static enum transmitter txstate;
+
+  switch(txstate)
+  {
+  case WaitPPM:
+  case Wait:
+    txstate = TXready;
+    break;
+  case TXready:
+    setNewChan();
+    txstate = TXon;
+    break;
+  case TXon:
+    cc2500_TxBindOn();                          // Sender aktivieren
+    txstate = Wait;
+    break;
+  }
+}
+
+void txStateNorm(void)
+{
+  static enum transmitter txstate;
+
+  switch(txstate)
+  {
+  case WaitPPM:
+    if(state.NewFrame)
+    {
+      state.NewFrame = false;
+      txstate = Wait;
+    }
+    break;
+  case Wait:
+    txstate = TXready;
+    break;
+  case TXready:
+    setNewChan();
+    txstate = TXon;
+    break;
+  case TXon:
+    cc2500_TxNormOn();                          // Sender aktivieren
+    if(output.chanPtr == 0)
+      txstate = WaitPPM;
+    else
+      txstate = TXready;
+    break;
+  }
+}
+
+void chkFailSafe(void)
+{
+  if(check_key() && !state.FaileSafeTimer)
+    state.FaileSafeTimer = FAILSAFETIMER;       /* 2 Sekunden */
+}
+
+void USART_Init( unsigned int ubrr)
+{
+  UBRR0H = (unsigned char)(ubrr>>8);          /* Set baud rate */
+  UBRR0L = (unsigned char)ubrr;
+  UCSR0A = 0;
+  UCSR0B = (1<<RXEN0)|(1<<TXEN0);           /* Enable receiver and transmitter */
+  UCSR0C = (3<<UCSZ00);                     /* Set frame format: 8data, 1stop bit */
+}
+
 int main(void)
 {
   CLKPR = 0;
@@ -395,54 +364,69 @@ int main(void)
   TIFR0 = 0;
   TIMSK0 = 0;
 
-// Timer1 8MHz   Servoausgänge
+// Timer1 8MHz   PPM Capture
   TCCR1A = (0 << WGM10);
-  TCCR1B = (1 << WGM12) | (1 << CS10);      // CTC OCR1A, 8MHz
+  TCCR1B = (1 << ICNC1) | (1 << WGM12) | (1 << CS10);      // CTC OCR1A, 8MHz
   TCNT1 = 0;
-  OCR1A = 500 * 8;        // in 500us beginnen
+  TIFR1 = 0;
+  TIMSK1 = (1 << ICIE1);
 
 
-// Timer2 30ms für Timeout
+// Timer2 1ms für Timer
   TCCR2A = 0;
-  TCCR2B = (1 << WGM21) | (7 << CS20);      //  CTC mode, clk/1024
-  OCR2A  = (F_CPU * 10 / 1024 / 333);       // ergibt 30ms (33,3Hz)
-  TIFR2  = 1 << OCF2A;
-  TIMSK2 = 1 << OCIE2A;
+  TCCR2B = (1 << WGM21) | (3 << CS20);      //  CTC mode, clk/32
+  OCR2A  = (F_CPU * 10 / 32 / 10000);       // ergibt 1ms (1000Hz)
+  TIFR2  = (1 << OCF2A);
+  TIMSK2 = (1 << OCIE2A);
 
 //  wdt_enable(WDTO_500MS);
-  EICRA = 1 << ISC01;           // int0 bei fallender Flanke
+  EICRA = (1 << ISC01);                       // int0 bei fallender Flanke
   EIMSK = 0;
   EIFR = 0;
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
+  if((eeprom.id == 0) || (eeprom.step == 0))
+    calcNewId();
   cc2500_Init();
   if(check_key())        // Taste prüfen
-    state.bindmode = true;
-  /* Beim Binden auf 0 oder 0xB8 suchen */
-  if(state.bindmode)
   {
-    SPI_MasterWriteReg(CC2500_CHANNR, 0);
-    cc2500_RxOn();
+    state.bindmode = true;
+    setBindMode();
   }
-  else
-    cc2500_RxChanOn(0);
   set_sleep_mode(SLEEP_MODE_IDLE);
-  setFailSafe();
-//  wdt_enable(WDTO_30MS);
+  wdt_enable(WDTO_30MS);
+  USART_Init(MYUBRR);
   while(1){
-    sleep_mode();                   //    warten bis was empfangen (Interrupt)
-    processData();                  //    daten lesen
-    cc2500_RxOn();
+    uint16_t old1ms;
+    do
+      old1ms = Timer1ms;
+    while(old1ms != Timer1ms);
+    while(Timer1ms==old1ms)
+      if(state.bindmode)
+      {
+        if(!check_key())
+          state.keyMode = true;
+        if(Timer33ms > (5000 / 33) && !state.keyMode)  // Wenn länger als 5s gedrückt
+          state.newIdMode = true;
+        if(state.keyMode && state.newIdMode)
+        {
+          calcNewId();
+          state.newIdMode = false;
+        }
+      }
+      else
+        sleep_mode();                   //    warten bis Timer (Interrupt)
+    if(state.bindmode)
+      txStateBind();
+    else
+      txStateNorm();
     if(TIFR0 & (1 << TOV0))
     {
-      ++Timer;            //32,768ms
-      RES_BIT(TIFR0, TOV0);
+      ++Timer33ms;
+      TIFR0 &= ~(1 << TOV0);
     }
     set_led();
-//    if(heartbeat == 0x3)
-//    {
-//      wdt_reset();
-//      heartbeat = 0;
-//    }
+    chkFailSafe();
+    wdt_reset();
   }
 }
