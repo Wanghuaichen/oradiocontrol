@@ -197,20 +197,16 @@ void set_led(void)
 {
   static uint16_t timer_alt;
   static uint8_t led_count;
-  uint16_t timer1msTemp;
+  uint16_t timerTemp;
 
-  do
-  {
-    timer1msTemp = Timer1ms;
-  }
-  while(timer1msTemp != Timer1ms);
-  if(timer1msTemp - timer_alt > 100)
+  timer1msTemp = Timer33ms;
+  if(timerTemp - timer_alt > 10)
   {
     if(led_count & 1)
       LED_ON;
     else
       LED_OFF;
-    timer_alt = timer1msTemp;
+    timer_alt = timerTemp;
 
     if((led_count & 0xf) == 0)
     {

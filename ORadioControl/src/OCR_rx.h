@@ -30,11 +30,12 @@ typedef struct t_State
 {
   bool      bindmode:1;
   bool      ngmode:1;         // new generation mode
-  bool      timeOut:1;
-  bool      scan:1;
-  bool      lowLqiMode:1;
-  bool      lastRxOkChanIdx:2;
+//  bool      scan:1;
+//  bool      lowLqiMode:1;
+//  bool      lastRxOkChanIdx:2;
+  uint8_t   RxTimeOut33;
   uint8_t   RxTimeOut;
+//  uint8_t   RxTimer;        // 0 - 255
   uint8_t   actChan;        // Eingestellter Kanal
   uint8_t   actAnt:1;         // Eingestellte Antenne
   int8_t    actFreqIdx:3;
@@ -46,8 +47,10 @@ typedef struct t_State
 typedef struct t_OutputData
 {
   uint16_t  chan_1us[8];       // Werte aller 8 Kanäle
+  uint8_t   timeOut[8];          // Timer für FailSafe
   uint16_t  pulses2MHz[18];
-  uint8_t   chanPtr;         // Kanalnummer aktuelle Ausgabe
+  uint8_t   chanPtr:4;         // Kanalnummer aktuelle Ausgabe an die Servos
+  uint8_t   chanMax:4;         // Anzahl der übertragenen Kanäle
 }__attribute__((packed)) OutputData;
 
 typedef struct t_ChannelData
@@ -55,3 +58,12 @@ typedef struct t_ChannelData
   uint8_t rssi;
   uint8_t lqi;                // Eigentlich nur 7 Bit
 }__attribute__((packed)) ChannelData;
+
+enum receiver
+{
+  WaitPPM,                    // Warten auf Framestart
+  Wait,                       // 1ms warten
+  TXready,                    // auf FSTXON wechseln
+  TXon                        // Daten schreiben und Sender aktivieren
+};
+
