@@ -18,6 +18,18 @@ FAQ:
 Was passiert wenn kein PPM- Frame kommt?
 Sender bleibt stehen
 
+Kanal 1
+2ms
+Kanal 2
+2ms
+Kanal x
+2ms
+Rückkanal
+3ms
+Kanal 1
+2ms
+
+
 done:
 
  */
@@ -75,7 +87,6 @@ done:
 #define FOSC 8000000 // Clock Speed
 #define BAUD 19200
 #define MYUBRR FOSC/16/BAUD-1
-#define FAILSAFETIMER 200             // 2 Sekunden
 
 #include "OCR_tx.h"
 
@@ -85,13 +96,14 @@ State state;
 OutputData output;
 volatile uint16_t Timer1ms;
 volatile uint16_t Timer33ms;
+TelemetrieReceive TelemetrieMes;
 
 ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)              // Timer 1ms
 {
 //  RES_BIT(TIMSK2, OCIE2A);
-  cli();
+//  cli();
   ++Timer1ms;
-  sei();
+//  sei();
 }
 
 ISR(INT0_vect, ISR_NOBLOCK)
@@ -104,6 +116,7 @@ ISR(TIMER1_CAPT_vect, ISR_NOBLOCK)                  //8MHz capture
   static uint16_t timer_alt, capture_alt;
   static uint8_t chanPtr;
   uint16_t timer1msTemp;
+  uint8_t chanPtrtemp = chanPtr;
 
   do
   {
@@ -113,14 +126,19 @@ ISR(TIMER1_CAPT_vect, ISR_NOBLOCK)                  //8MHz capture
   uint16_t capture = ICR1;
   if(timer1msTemp - timer_alt > 2)   // Neuer PPM- Frame
   {
-    TCNT2 = 0;                        // Timer 2 initialisieren
-    chanPtr = 0;
-    state.NewFrame = true;
+//    TCNT2 = 0;                        // Timer 2 initialisieren
+    chanPtrtemp = 0;
+    state.maxChan = (chanPtrtemp - 1) & 7;
   }
-  else if(chanPtr < 8)
-    output.chan_1us[chanPtr++] = (capture - capture_alt) / 8;
+  else if(chanPtrtemp < 8)               // Auf 8 Kanäle begrenzen
+  {
+    output.chan_1us[chanPtrtemp] = (capture - capture_alt) / 8 - 1500u;
+    output.chanNew |= (1 << chanPtrtemp);   // rechenintensiv!
+    ++chanPtrtemp;
+  }
   capture_alt = capture;
   timer_alt = timer1msTemp;
+  chanPtr = chanPtrtemp;
 }
 
 void SPI_MasterInit(void)
@@ -171,6 +189,12 @@ void cc2500_Init(void)
   SPI_MasterWriteReg(CC2500_SYNC1,(unsigned char)(eeprom.id >> 8));
 }
 
+void cc2500BurstOff(void)
+{
+  PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
+  while(!(PINB & (1<<OUT_B_SPI_SS)));
+}
+
 void setBindMode(void)
 {
   SPI_MasterWriteReg(CC2500_SYNC0, (unsigned char)BINDMODEID);
@@ -178,14 +202,27 @@ void setBindMode(void)
   SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(eeprom));
 }
 
-void setNewChan(void)                // Kanal schreiben und nach FSTXON
+void setNewChan(void)                // Kanal schreiben
 {
   uint16_t tempChan = state.actChan + eeprom.step * 2 + 1;
   if(tempChan > 205)
     tempChan -= (205 + 1);
   state.actChan = tempChan;
   SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
-  SPI_MasterTransmit(CC2500_SFSTXON);
+}
+
+void setNewChanTx(void)                // Kanal schreiben und nach FSTXON
+{
+  setNewChan();
+  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(MessageData));
+  SPI_MasterTransmit(CC2500_SFSTXON); // Antennenumschalter ?
+}
+
+void setNewChanRx(void)                // Kanal schreiben und nach Rx
+{
+  setNewChan();
+  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
+  SPI_MasterTransmit(CC2500_SRX);    // Antennenumschalter ?
 }
 
 bool check_key(void)
@@ -199,7 +236,7 @@ void set_led(void)
   static uint8_t led_count;
   uint16_t timerTemp;
 
-  timer1msTemp = Timer33ms;
+  timerTemp = Timer33ms;
   if(timerTemp - timer_alt > 10)
   {
     if(led_count & 1)
@@ -241,37 +278,79 @@ void calcNewId(void)
   eeprom_write_block(&eeprom, 0, sizeof(eeprom));
 }
 
-void cc2500_TxNormOn(void)
+void TxSendcommand(uint16_t command, bool lastFlag)
+{
+  MessageCommand mes;
+
+  mes.mode = 1;
+  mes.rts = lastFlag;
+  mes.command = command;
+  cc2500WriteSingle((int8_t *)&mes, sizeof(mes));
+}
+
+void TxSendData(bool lastFlag)
+{
+  if(state.SetFaileSafe)
+  {
+    TxSendcommand(1, lastFlag);           // Failsafe- Position setzen
+    state.SetFaileSafe = false;
+  }
+  else
+    TxSendcommand(0, lastFlag);
+}
+
+void TxSendChan(void)
 {
   uint8_t tempPtr = output.chanPtr;
-  if(state.FaileSafeTimer == FAILSAFETIMER)
+  MessageChan mes;
+
+  // Kanal suchen der gesendet werden soll
+  if(output.chanNew & (1 << tempPtr))    // Wird im Interrupt geändert
   {
-    SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3)
-        & (tempPtr << 2) & 0x40);
-    SPI_MasterWriteReg(CC2500_TXFIFO, (unsigned char)output.chan_1us[tempPtr]);
+    mes.mode = 0;
+    mes.channel = tempPtr;
+    mes.chan_1us = output.chan_1us[tempPtr];
+    if(tempPtr >= state.maxChan)      // letzter Kanal
+      tempPtr = 0;
+    else
+      ++tempPtr;          // Überlauf wird oben abgefangen
+    output.chanPtr = tempPtr;
   }
-  else if(state.FaileSafeTimer == FAILSAFETIMER - 1)
+  else
+  {                       // Es ist nichts da, dann Daten senden
+    TxSendData(false);
+  }
+  cc2500WriteSingle((int8_t *)&mes, sizeof(mes));
+}
+
+void TxReceive()
+{
+  if(get_RxCount() == sizeof(TelemetrieMes))
   {
-    SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3)
-        & (tempPtr << 2) & 0x80);
-    SPI_MasterWriteReg(CC2500_TXFIFO, (unsigned char)output.chan_1us[tempPtr]);
+    if(TelemetrieMes.crcOk)
+    {
+      SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
+      cc2500ReadBlock((int8_t *)&TelemetrieMes, sizeof(TelemetrieMes));
+      cc2500BurstOff();         // Burstzugriff rücksetzen
+    }
+  }
+  cc2500FlushData();
+}
+
+void cc2500_TxNormOn(void)
+{
+
+  if(state.txCount >= 7)
+  {
+    TxSendData(true);
+    state.txCount = 0;
   }
   else
   {
-    if(tempPtr == 7)
-      SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3)
-          & (tempPtr << 2) & 0xc0);
-    else
-      SPI_MasterWriteReg(CC2500_TXFIFO, ((output.chan_1us[tempPtr] >> 8) & 0x3) & (tempPtr << 2));
-    SPI_MasterWriteReg(CC2500_TXFIFO, (unsigned char)output.chan_1us[tempPtr]);
+    TxSendChan();
+    ++state.txCount;
   }
   SPI_MasterTransmit(CC2500_STX);            // Enable TX;
-  if(!output.chanPtr && state.FaileSafeTimer)
-    --state.FaileSafeTimer;
-  ++tempPtr;
-  if(tempPtr > 7)
-    tempPtr = 0;
-  output.chanPtr = tempPtr;
 }
 
 void cc2500_TxBindOn(void)
@@ -282,23 +361,27 @@ void cc2500_TxBindOn(void)
   SPI_MasterTransmit(CC2500_STX);            // Enable TX
 }
 
-void txStateBind(void)
+void txStateBind(void)      // 3ms Slot weil Telegramm länger als 2 Byte
 {
   static enum transmitter txstate;
 
   switch(txstate)
   {
-  case WaitPPM:
-  case Wait:
-    txstate = TXready;
+  case TxReady:
+    setNewChanTx();
+    txstate = TxOn;
     break;
-  case TXready:
-    setNewChan();
-    txstate = TXon;
-    break;
-  case TXon:
+  case TxOn:
     cc2500_TxBindOn();                          // Sender aktivieren
-    txstate = Wait;
+    txstate = TxWait;
+    break;
+  case TxWait:
+    txstate = TxReady;
+    break;
+  case RxWait:
+  case RxWait2:
+  case RxWait3:
+    txstate = TxReady;
     break;
   }
 }
@@ -309,34 +392,35 @@ void txStateNorm(void)
 
   switch(txstate)
   {
-  case WaitPPM:
-    if(state.NewFrame)
-    {
-      state.NewFrame = false;
-      txstate = Wait;
-    }
+  case TxReady:                  // Frequenz einstellen
+    setNewChanTx();
+    TxReceive();                  // Empfangsdaten auswerten
+    txstate = TxOn;
     break;
-  case Wait:
-    txstate = TXready;
-    break;
-  case TXready:
-    setNewChan();
-    txstate = TXon;
-    break;
-  case TXon:
-    cc2500_TxNormOn();                          // Sender aktivieren
-    if(output.chanPtr == 0)
-      txstate = WaitPPM;
+  case TxOn:                      // Daten senden
+    cc2500_TxNormOn();            // Sender aktivieren
+    if(!state.txCount)
+      txstate = RxWait;
     else
-      txstate = TXready;
+      txstate = TxReady;
+    break;
+  case RxWait:                  // Empfänger einstellen
+    setNewChanRx();
+    break;
+  case RxWait2:                  // Jetzt wird empfangen
+    break;
+  case RxWait3:                   // Immer noch empfangen
+    txstate = TxReady;
+  case TxWait:
+    txstate = TxReady;
     break;
   }
 }
 
 void chkFailSafe(void)
 {
-  if(check_key() && !state.FaileSafeTimer)
-    state.FaileSafeTimer = FAILSAFETIMER;       /* 2 Sekunden */
+  if(check_key())
+    state.SetFaileSafe = true;
 }
 
 void USART_Init( unsigned int ubrr)
@@ -398,6 +482,7 @@ int main(void)
       old1ms = Timer1ms;
     while(old1ms != Timer1ms);
     while(Timer1ms==old1ms)
+    {
       if(state.bindmode)
       {
         if(!check_key())
@@ -412,6 +497,7 @@ int main(void)
       }
       else
         sleep_mode();                   //    warten bis Timer (Interrupt)
+    }
     if(state.bindmode)
       txStateBind();
     else
@@ -420,9 +506,9 @@ int main(void)
     {
       ++Timer33ms;
       TIFR0 &= ~(1 << TOV0);
+      set_led();
+      chkFailSafe();
     }
-    set_led();
-    chkFailSafe();
     wdt_reset();
   }
 }

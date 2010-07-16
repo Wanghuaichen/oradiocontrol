@@ -65,6 +65,8 @@ extern uint8_t get_RxCount(void);
 extern void cc2500FlushData(void);
 extern void cc2500_RxOn(void);
 extern void cc2500ReadBlock(int8_t *, uint8_t);
+extern void cc2500WriteBlock(int8_t *, uint8_t);
+extern void cc2500WriteSingle(int8_t *, uint8_t);
 extern void setFrequencyOffset(void);
 extern uint8_t get_Data(void);
 
@@ -74,5 +76,45 @@ extern prog_uint8_t APM cc2500InitValue[41];
 #define RES_BIT(port,bit)  (port &= (uint8_t)~(1<<bit))
 
 #define BINDMODEID 0x1009
+#define K_DUMMY 0x0000
+#define K_SETFAILESAFEPOS 0x0001
+#define K_MODEFAILSAFE
+
+typedef struct t_MessageChan
+{
+  uint8_t   mode:1;
+  uint8_t   channel:4;         // Kanalnummer aktuelle Ausgabe
+  uint16_t  chan_1us:11;       // Wert
+}__attribute__((packed)) MessageChan;
+
+typedef struct t_MessageFailSafe
+{
+  uint8_t   mode:1;
+  uint8_t   rts:1;
+  uint8_t   typ:4;
+  uint8_t   channel:4;         // Kanalnummer
+  uint8_t   FailMode:2;
+  uint8_t   FailTime:4;
+}__attribute__((packed)) MessageFailSafe;
+
+typedef struct t_MessageCommand
+{
+  uint8_t   mode:1;
+  uint8_t   rts:1;
+  uint16_t  command:14;
+}__attribute__((packed)) MessageCommand;
+
+typedef union t_MessageData
+{
+  MessageCommand command;
+  MessageChan channel;
+  MessageFailSafe failSafe;
+}__attribute__((packed)) MessageData;
+
+typedef struct t_Telemetrie
+{
+  uint8_t   sensor;
+  uint16_t  data;
+}__attribute__((packed)) Telemetrie;
 
 /*eof*/

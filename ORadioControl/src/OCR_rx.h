@@ -35,7 +35,7 @@ typedef struct t_State
 //  bool      lastRxOkChanIdx:2;
   uint8_t   RxTimeOut33;
   uint8_t   RxTimeOut;
-//  uint8_t   RxTimer;        // 0 - 255
+  uint8_t   RxCount;        // 0 - 7
   uint8_t   actChan;        // Eingestellter Kanal
   uint8_t   actAnt:1;         // Eingestellte Antenne
   int8_t    actFreqIdx:3;
@@ -53,10 +53,19 @@ typedef struct t_OutputData
   uint8_t   chanMax:4;         // Anzahl der übertragenen Kanäle
 }__attribute__((packed)) OutputData;
 
+typedef struct t_Message
+{
+  MessageData  data;
+  uint8_t rssi;
+  uint8_t crcOk:1;
+  uint8_t lqi:7;
+}__attribute__((packed)) Message;
+
 typedef struct t_ChannelData
 {
-  uint8_t rssi;
-  uint8_t lqi;                // Eigentlich nur 7 Bit
+  int8_t rssi;
+  uint8_t crcOk:1;
+  uint8_t lqi:7;
 }__attribute__((packed)) ChannelData;
 
 enum receiver

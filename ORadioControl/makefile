@@ -4,7 +4,7 @@
 
 ## General Flags
 PROJECT = ORC
-MCU = atmega88
+MCU = atmega48
 CC = 
 
 CPP = avr-g++

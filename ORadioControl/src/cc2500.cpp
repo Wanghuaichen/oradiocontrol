@@ -127,3 +127,18 @@ void cc2500ReadBlock(int8_t *p, uint8_t n)
     *p++ = SPI_MasterTransmit(CC2500_SNOP);
 }
 
+void cc2500WriteBlock(int8_t *p, uint8_t n)
+{
+  while(n--)
+    SPI_MasterTransmit(*p++);
+}
+
+void cc2500WriteSingle(int8_t *p, uint8_t n)
+{
+  while(n--)
+  {
+    SPI_MasterTransmit(CC2500_TXFIFO);
+    SPI_MasterTransmit(*p++);
+  }
+}
+
