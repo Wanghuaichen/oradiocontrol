@@ -13,55 +13,49 @@
 Probleme:
 bugs:
 todo:
+done:
 
 FAQ:
-Was passiert wenn kein PPM- Frame kommt?
-Sender bleibt stehen
-
-Kanal 1
-2ms
-Kanal 2
-2ms
-Kanal x
-2ms
-Rückkanal
-3ms
-Kanal 1
-2ms
-
-
-done:
+Was passiert wenn kein PPM- Frame kommt?  Sender sendet nur Telemetrie
 
  */
 
-//PB0
-//PB1 -
-//PB2 SS (SPI Bus Master Slave select)
-//PB3 MOSI (SPI Bus Master Output/Slave Input)
-//PB4 MISO (SPI Bus Master Input/Slave Output)
-//PB5 SCK (SPI Bus Master clock Input)
-//PB6 OSC
-//PB7 OSC
+//PIN 1   PD3   INT1/OC2B/PCINT19
+//PIN 2   PD4   XCK/T0/PCINT20
+//PIN 3   GND
+//PIN 4   VCC
+//PIN 5   GND
+//PIN 6   VCC
+//PIN 7   PB6   OSC
+//PIN 8   PB7   OSC
+//PIN 9   PD5   T1/OC0B/PCINT21
+//PIN 10  PD6   AIN0/OC0A/PCINT22
+//PIN 11  PD7   AIN1/OC2B/PCINT23
+//PIN 12  PB0   ICP1/CLKO/PCINT0
+//PIN 13  PB1   OC1A/PCINT1
+//PIN 14  PB2   SS/OC1B/PCINT2 (SPI Bus Master Slave select)
+//PIN 15  PB3   MOSI/OC2/PCINT3 (SPI Bus Master Output/Slave Input)
+//PIN 16  PB4   MISO/PCINT4 (SPI Bus Master Input/Slave Output)
+//PIN 17  PB5   SCK/PCINT5 (SPI Bus Master clock Input)
+//PIN 18  AVCC
+//PIN 19  ADC6
+//PIN 20  AREF
+//PIN 21  GND
+//PIN 22  ADC7
+//PIN 23  PC0   ADC0/PCINT8
+//PIN 24  PC1   ADC1/PCINT9
+//PIN 25  PC2   ADC2/PCINT10
+//PIN 26  PC3   ADC3/PCINT11
+//PIN 27  PC4   SDA/ADC4/PCINT12
+//PIN 28  PC5   SCL/ADC5/PCINT13
+//PIN 29  PC6   RESET/PCINT14
+//PIN 30  PD0   RXD/PCINT16
+//PIN 31  PD1   TXD/PCINT17
+//PIN 32  PD2   INT0/PCINT18
 
-//PC0 Servo 8
-//PC1 Servo 7
-//PC2 Servo 6
-//PC3 Servo 5
-//PC4 Servo 4
-//PC5 Servo 3
-//PC6 RESET
-
-
-//PD0 Servo 2
-//PD1 Servo 1
-//PD2 GDO0
-//PD3 GDO2
-//PD4 LED
-//PD5 Taster
-//PD6 Ant
-//PD7
 
 #define OUT_B_SPI_SS PORTB2
+#define OUT_B_SPI_MOSI PORTB3
 #define OUT_B_SPI_MISO PORTB4
 #define OUT_B_SPI_SCK PORTB5
 #define OUT_D_LED PORTD4
@@ -88,7 +82,7 @@ done:
 #define BAUD 19200
 #define MYUBRR FOSC/16/BAUD-1
 
-#include "OCR_tx.h"
+#include "ORC_tx.h"
 
 
 /* EEMEM */ EEData eeprom;
@@ -106,10 +100,10 @@ ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)              // Timer 1ms
 //  sei();
 }
 
-ISR(INT0_vect, ISR_NOBLOCK)
-{
-  RES_BIT(EIMSK, INT0);                    // INT0 aus, dient nur zum wecken
-}
+//ISR(INT0_vect, ISR_NOBLOCK)
+//{
+//  RES_BIT(EIMSK, INT0);                    // INT0 aus, dient nur zum wecken
+//}
 
 ISR(TIMER1_CAPT_vect, ISR_NOBLOCK)                  //8MHz capture
 {
@@ -202,7 +196,7 @@ void setBindMode(void)
   SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(eeprom));
 }
 
-void setNewChan(void)                // Kanal schreiben
+void setNextChan(void)                // Kanal schreiben
 {
   uint16_t tempChan = state.actChan + eeprom.step * 2 + 1;
   if(tempChan > 205)
@@ -211,21 +205,21 @@ void setNewChan(void)                // Kanal schreiben
   SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
 }
 
-void setNewChanTx(void)                // Kanal schreiben und nach FSTXON
+void setNextChanTx(void)                // Kanal schreiben und nach FSTXON
 {
-  setNewChan();
+  setNextChan();
   SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(MessageData));
   SPI_MasterTransmit(CC2500_SFSTXON); // Antennenumschalter ?
 }
 
-void setNewChanRx(void)                // Kanal schreiben und nach Rx
+void setNextChanRx(void)                // Kanal schreiben und nach Rx
 {
-  setNewChan();
+  setNextChan();
   SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
   SPI_MasterTransmit(CC2500_SRX);    // Antennenumschalter ?
 }
 
-bool check_key(void)
+bool checkKey(void)
 {
   return(!(PIND & (1 << INP_D_KEY)));
 }
@@ -299,13 +293,25 @@ void TxSendData(bool lastFlag)
     TxSendcommand(0, lastFlag);
 }
 
+uint8_t searchChan(void)
+{
+  if(output.chanNew)
+  {
+    uint8_t i = 0;
+    while(output.chanNew & (1 << i++));
+    return(i);
+  }
+  else
+    return(0);
+}
+
 void TxSendChan(void)
 {
-  uint8_t tempPtr = output.chanPtr;
+  uint8_t tempPtr;           // = output.chanPtr;
   MessageChan mes;
 
   // Kanal suchen der gesendet werden soll
-  if(output.chanNew & (1 << tempPtr))    // Wird im Interrupt geändert
+  if((tempPtr = searchChan()))    // Wird im Interrupt geändert
   {
     mes.mode = 0;
     mes.channel = tempPtr;
@@ -314,7 +320,7 @@ void TxSendChan(void)
       tempPtr = 0;
     else
       ++tempPtr;          // Überlauf wird oben abgefangen
-    output.chanPtr = tempPtr;
+//    output.chanPtr = tempPtr;
   }
   else
   {                       // Es ist nichts da, dann Daten senden
@@ -337,9 +343,17 @@ void TxReceive()
   cc2500FlushData();
 }
 
+void chkFailSafe(void)
+{
+  if(checkKey())
+    state.SetFaileSafe = true;
+}
+
 void cc2500_TxNormOn(void)
 {
-
+  // heiße Sache, CPU hat 0,64ms Zeit um die Daten zu schreiben
+  // aber das Timing ist schon konstant!
+  SPI_MasterTransmit(CC2500_STX);            // Enable TX;
   if(state.txCount >= 7)
   {
     TxSendData(true);
@@ -350,77 +364,77 @@ void cc2500_TxNormOn(void)
     TxSendChan();
     ++state.txCount;
   }
-  SPI_MasterTransmit(CC2500_STX);            // Enable TX;
 }
 
 void cc2500_TxBindOn(void)
 {
+  SPI_MasterTransmit(CC2500_STX);            // Enable TX
   int8_t *p = (int8_t *)&eeprom;
   for(uint8_t i = 0;i < sizeof(eeprom);++i)
     SPI_MasterWriteReg(CC2500_TXFIFO, *p++);
-  SPI_MasterTransmit(CC2500_STX);            // Enable TX
 }
 
-void txStateBind(void)      // 3ms Slot weil Telegramm länger als 2 Byte
+void txState(void)
 {
   static enum transmitter txstate;
 
   switch(txstate)
   {
-  case TxReady:
-    setNewChanTx();
-    txstate = TxOn;
-    break;
-  case TxOn:
-    cc2500_TxBindOn();                          // Sender aktivieren
-    txstate = TxWait;
-    break;
-  case TxWait:
-    txstate = TxReady;
-    break;
-  case RxWait:
-  case RxWait2:
-  case RxWait3:
-    txstate = TxReady;
-    break;
-  }
-}
-
-void txStateNorm(void)
-{
-  static enum transmitter txstate;
-
-  switch(txstate)
-  {
-  case TxReady:                  // Frequenz einstellen
-    setNewChanTx();
-    TxReceive();                  // Empfangsdaten auswerten
-    txstate = TxOn;
-    break;
-  case TxOn:                      // Daten senden
-    cc2500_TxNormOn();            // Sender aktivieren
-    if(!state.txCount)
-      txstate = RxWait;
+  case Start:
+    if(checkKey())               // Taste prüfen
+      txstate = TxBindCheck;
     else
       txstate = TxReady;
     break;
-  case RxWait:                  // Empfänger einstellen
-    setNewChanRx();
+  case TxReady:                  // Frequenz einstellen
+    chkFailSafe();
+    setNextChanTx();
+    txstate = TxOn;
+    break;
+  case TxOn:                      // Daten senden
+    cc2500_TxNormOn();            // Sender aktivieren, Daten senden
+    if(!state.txCount)
+      txstate = RxOn;
+    else
+      txstate = TxReady;
+    break;
+  case RxOn:                      // Empfänger einstellen, Kalibrieren
+    setNextChanRx();
     break;
   case RxWait2:                  // Jetzt wird empfangen
     break;
   case RxWait3:                   // Immer noch empfangen
-    txstate = TxReady;
+    txstate = RxCalc;
+    break;
+  case RxCalc:
+    setNextChanTx();
+    TxReceive();                  // Empfangsdaten auswerten
+    txstate = TxOn;
+    break;
   case TxWait:
     txstate = TxReady;
     break;
+  case TxBindCheck:
+    if(!checkKey())
+    {
+      if(Timer33ms > (5000 / 33))
+        calcNewId();
+      setBindMode();
+      txstate = TxNextChanBind;
+    }
+    break;
+  case TxNextChanBind:
+    setNextChanTx();
+    txstate = TxOnBind;
+    break;
+  case TxOnBind:                  // Daten ins Senderegister
+    cc2500_TxBindOn();                          // Sender aktivieren
+    txstate = TxWaitBind;
+    break;
+  case TxWaitBind:                  // 3ms Slot weil Telegramm länger als 2 Byte
+    txstate = TxNextChanBind;
+    break;
   }
-}
-
-void chkFailSafe(void)
-{
-  if(check_key())
-    state.SetFaileSafe = true;
 }
 
 void USART_Init( unsigned int ubrr)
@@ -460,19 +474,14 @@ int main(void)
   TIMSK2 = (1 << OCIE2A);
 
 //  wdt_enable(WDTO_500MS);
-  EICRA = (1 << ISC01);                       // int0 bei fallender Flanke
-  EIMSK = 0;
-  EIFR = 0;
+//  EICRA = (1 << ISC01);                       // int0 bei fallender Flanke
+//  EIMSK = 0;
+//  EIFR = 0;
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
   if((eeprom.id == 0) || (eeprom.step == 0))
     calcNewId();
   cc2500_Init();
-  if(check_key())        // Taste prüfen
-  {
-    state.bindmode = true;
-    setBindMode();
-  }
   set_sleep_mode(SLEEP_MODE_IDLE);
   wdt_enable(WDTO_30MS);
   USART_Init(MYUBRR);
@@ -483,31 +492,14 @@ int main(void)
     while(old1ms != Timer1ms);
     while(Timer1ms==old1ms)
     {
-      if(state.bindmode)
-      {
-        if(!check_key())
-          state.keyMode = true;
-        if(Timer33ms > (5000 / 33) && !state.keyMode)  // Wenn länger als 5s gedrückt
-          state.newIdMode = true;
-        if(state.keyMode && state.newIdMode)
-        {
-          calcNewId();
-          state.newIdMode = false;
-        }
-      }
-      else
-        sleep_mode();                   //    warten bis Timer (Interrupt)
+      sleep_mode();                   //    warten bis Timer (Interrupt)
     }
-    if(state.bindmode)
-      txStateBind();
-    else
-      txStateNorm();
+    txState();
     if(TIFR0 & (1 << TOV0))
     {
       ++Timer33ms;
       TIFR0 &= ~(1 << TOV0);
       set_led();
-      chkFailSafe();
     }
     wdt_reset();
   }

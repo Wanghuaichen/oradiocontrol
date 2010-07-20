@@ -21,9 +21,9 @@ typedef struct t_EEData
 
 typedef struct t_State
 {
-  bool      bindmode:1;
-  bool      newIdMode:1;
-  bool      keyMode:1;
+//  bool      bindmode:1;
+//  bool      newIdMode:1;
+//  bool      keyMode:1;
   bool      SetFaileSafe:1;
 //  bool      NewFrame:1;
   uint8_t   actChan;        // Eingestellter Kanal
@@ -53,12 +53,19 @@ typedef struct t_TelemetrieReceive
   uint8_t crcOk:1;
   uint8_t lqi:7;
 }__attribute__((packed)) TelemetrieReceive;
+
 enum transmitter
 {
-  TxReady,                    // auf FSTXON wechseln
+  Start,
+  TxReady,                      // auf FSTXON wechseln
   TxOn,                        // Daten schreiben und Sender aktivieren
-  RxWait,                    // Warten auf Framestart
-  RxWait2,                   // 1ms warten
+  RxOn,                       // Empfänger einstellen, Kalibrieren
+  RxWait2,                    // 1ms warten
   RxWait3,
-  TxWait
+  RxCalc,
+  TxWait,                      // Bind- Mode
+  TxBindCheck,
+  TxNextChanBind,
+  TxOnBind,
+  TxWaitBind
 };

@@ -12,40 +12,74 @@
 
 bugs:
 todo:
+tmain berechnen (min, max)
+Ausgabe der Einzelkanäle kann sofort erfolgen wenn Daten empfangen
 Achtung: Beim Einschalten kein FailSafe wegen Regler
+
+Sender am Boden ist der Master für das Timing
+
+(Option) Solange kein Telegramm ausfällt, reicht es die geänderten zu Übertragen.
+(Option) Immer wieder auch nicht veränderte übertragen.
+
+Mischbetrieb PPM- Ausgabe und Einzelausgabe schwierig
+
+Tabelle: Timerwert, Kanal, ein, aus
+  Minimalabstand nötig, wegen Interrupt
+Synchrones Ausgeben schwierig bei gleichen oder ähnlichen Timerwerten.
+  dort leichte Schachtelung nötig
+
+pulses2MHz[channel]
+routine   1 aus 2 an oder nur 1 aus
+10ms Frame ist nicht zu schaffen (1ms pro Kanal + 2ms Rückkanal)
+
+Kanal suchen
+Frquenz verstellen
+
+empfangen bind
+empfangen normal
+senden telemetrie
 
 
 done:
+Nachsehen ob neuer Kanal kleiner als letzter, wenn ja PPM generieren.
 */
 
-//PB0
-//PB1 -
-//PB2 SS (SPI Bus Master Slave select)
-//PB3 MOSI (SPI Bus Master Output/Slave Input)
-//PB4 MISO (SPI Bus Master Input/Slave Output)
-//PB5 SCK (SPI Bus Master clock Input)
-//PB6 OSC
-//PB7 OSC
+//PIN 1   PD3   INT1/OC2B/PCINT19                       CC2500 GDO2
+//PIN 2   PD4   XCK/T0/PCINT20                          LED
+//PIN 3   GND                                           --
+//PIN 4   VCC                                           --
+//PIN 5   GND                                           --
+//PIN 6   VCC                                           --
+//PIN 7   PB6   OSC                                     8 MHz
+//PIN 8   PB7   OSC                                     8 MHz
+//PIN 9   PD5   T1/OC0B/PCINT21                         Taster
+//PIN 10  PD6   AIN0/OC0A/PCINT22                       Antenne 1
+//PIN 11  PD7   AIN1/OC2B/PCINT23
+//PIN 12  PB0   ICP1/CLKO/PCINT0
+//PIN 13  PB1   OC1A/PCINT1
+//PIN 14  PB2   SS/OC1B/PCINT2 (SPI Bus Master Slave select)
+//PIN 15  PB3   MOSI/OC2/PCINT3 (SPI Bus Master Output/Slave Input)
+//PIN 16  PB4   MISO/PCINT4 (SPI Bus Master Input/Slave Output)
+//PIN 17  PB5   SCK/PCINT5 (SPI Bus Master clock Input)
+//PIN 18  AVCC                                          --
+//PIN 19  ADC6                                          -
+//PIN 20  AREF                                          --
+//PIN 21  GND                                           --
+//PIN 22  ADC7                                          -
+//PIN 23  PC0   ADC0/PCINT8                             Servo 8
+//PIN 24  PC1   ADC1/PCINT9                             Servo 7
+//PIN 25  PC2   ADC2/PCINT10                            Servo 6
+//PIN 26  PC3   ADC3/PCINT11                            Servo 5
+//PIN 27  PC4   SDA/ADC4/PCINT12                        Servo 4
+//PIN 28  PC5   SCL/ADC5/PCINT13                        Servo 3
+//PIN 29  PC6   RESET/PCINT14                           Reset
+//PIN 30  PD0   RXD/PCINT16                             Servo 2
+//PIN 31  PD1   TXD/PCINT17                             Servo 1
+//PIN 32  PD2   INT0/PCINT18                            CC2500 GDO0
 
-//PC0 Servo 8
-//PC1 Servo 7
-//PC2 Servo 6
-//PC3 Servo 5
-//PC4 Servo 4
-//PC5 Servo 3
-//PC6 RESET
-
-
-//PD0 Servo 2
-//PD1 Servo 1
-//PD2 GDO0
-//PD3 GDO2
-//PD4 LED
-//PD5 Taster
-//PD6 Ant
-//PD7
 
 #define OUT_B_SPI_SS PORTB2
+#define OUT_B_SPI_MOSI PORTB3
 #define OUT_B_SPI_MISO PORTB4
 #define OUT_B_SPI_SCK PORTB5
 #define OUT_D_LED PORTD4
@@ -68,17 +102,16 @@ done:
 #define LED_OFF SET_BIT(PORTD, OUT_D_LED)
 #define LED_ON RES_BIT(PORTD, OUT_D_LED)
 
-#include "OCR_rx.h"
+#include "ORC_rx.h"
 
 
 /* EEMEM */ EEData eeprom;
-uint8_t errorStatus;
+//uint8_t errorStatus;
 State state;
 OutputData output;
-ChannelData channel[3];
 volatile uint16_t Timer1ms;
 volatile uint16_t Timer33ms;
-volatile uint8_t IntTimer;
+//volatile uint8_t IntTimer;
 bool RxInterrupt;
 //uint8_t heartbeat;
 
@@ -202,13 +235,10 @@ FuncP_PROGMEM APM set_CanalOutQ[] = {
 ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)              // Timeout, 1. andere Antenne nehmen 2. anderen Kanal nehmen
 {
 //  RES_BIT(TIMSK2, OCIE2A);
-  cli();
-  ++Timer2ms;
-  sei();
-  if(IntTimer)
-    --IntTimer;
-  if(!IntTimer)
-    RxInterrupt = true;
+//  cli();
+  ++Timer1ms;
+//  sei();
+  RxInterrupt = true;
 }
 
 ISR(INT0_vect, ISR_NOBLOCK)
@@ -317,14 +347,14 @@ void setupPulsesPPM_quad()
   output.pulses2MHz[j++]=(uint16_t)300 * 8;
   for(uint8_t i=0;i<8;i++)
   {
-    output.pulses2MHz[j++] = output.chan_1us[i] * 8 - 300 * 8;
+    output.pulses2MHz[j++] = output.chan_1us[i] * 8 - 300 * 8 + 1500u;
     output.pulses2MHz[j++]=(uint16_t)300 * 8;
   }
   output.pulses2MHz[j]=0;
   output.chanPtr = 0;
   TIFR1 &= ~(1<<OCF1A);
-  TIMSK1 |= (1<<OCIE1A);
-  set_sleep_mode(SLEEP_MODE_IDLE);
+  TIMSK1 |= (1<<OCIE1A);      // Timer Interrupt Mask Register
+//  set_sleep_mode(SLEEP_MODE_IDLE);
 }
 
 void setupPulsesPPM()
@@ -340,12 +370,12 @@ void setupPulsesPPM()
 //  sei();
   uint8_t j=0;
   for(uint8_t i = 0;i < 8;i++)
-    output.pulses2MHz[j++] = output.chan_1us[i] * 8;
+    output.pulses2MHz[j++] = output.chan_1us[i] * 8 + 1500u;
   output.pulses2MHz[j] = 0;
   output.chanPtr = 0;
   TIFR1 &= ~(1<<OCF1A);
-  TIMSK1 |= (1<<OCIE1A);
-  set_sleep_mode(SLEEP_MODE_IDLE);
+  TIMSK1 |= (1<<OCIE1A);          // Timer Interrupt Mask Register
+//  set_sleep_mode(SLEEP_MODE_IDLE);
 }
 
 void setNextChan(void)                // Kanal schreiben
@@ -355,18 +385,20 @@ void setNextChan(void)                // Kanal schreiben
     tempChan -= (205 + 1);
   state.actChan = tempChan;
   SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
+  SPI_MasterTransmit(CC2500_SFSTXON);       // Kalibrieren
 }
 
-void setNextChanRx(void)                // Kanal schreiben und nach RX
+//void setTxOn(void)                // Kanal schreiben und nach FSTXON
+//{
+//  setNextChan();
+//  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
+//}
+
+void setRxOn(void)                // Kanal schreiben und nach Rx
 {
-  setNextChan();
+//  setNextChan();
+  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(MessageData));
   SPI_MasterTransmit(CC2500_SRX);
-}
-
-void setNextChanTx(void)                // Kanal schreiben und nach TX
-{
-  setNextChan();
-  SPI_MasterTransmit(CC2500_SFSTXON);
 }
 
 void setAnt(bool ant)
@@ -385,75 +417,72 @@ void setAnt(bool ant)
   }
 }
 
+bool checkchanFree(void)            // False: Kanal frei
+{
+  int8_t rssi = SPI_MasterReadReg(CC2500_RSSI | CC2500_READ_BURST);
+  return(rssi > 0);
+}
+
 void setFreeChan(void)
 {
-  uint8_t i = 0;
-  int8_t rssi;
-  uint16_t timer;
-
-  do
-  {
-    uint16_t tempChan = state.actChan + 1;
-    if(tempChan > 205)
-      tempChan -= (205 + 1);
-    state.actChan = tempChan;
-    SPI_MasterTransmit(CC2500_SIDLE);
-    SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
-    SPI_MasterTransmit(CC2500_SRX);
-    timer = Timer1ms;
-    do
-    {
-      if((PIND & (1 << INP_D_CC2500_GDO0)))
-        return;                             // Telegramm kommt gerade -> dann zurück und auf Interrupt warten
-    }
-    while((timer + 4) >= Timer1ms);   // Warten bis RX und RSSI gemessen
-    rssi = SPI_MasterReadReg(CC2500_RSSI | CC2500_READ_BURST); //  testen ob frei nein dann anderen
-  }
-  while((++i < 10) && (rssi > 0));        // && kanal nicht frei)
+  uint16_t tempChan = state.actChan + 1;
+  if(tempChan > 205)
+    tempChan -= (205 + 1);
+  state.actChan = tempChan;
+  SPI_MasterTransmit(CC2500_SIDLE);
+  SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
+  SPI_MasterTransmit(CC2500_SRX);
 }
 
 prog_int8_t APM freq[] = {0, -120, +120, +40, -40, -80, 80};
 
-void setNewRxPara(void)
+void setNewRxFrequ(void)
 {
-  // Antenne umschalten
-  // freien Kanal suchen
-  // 1 Sekunde zeit lassen
-  // Synthesiser verstellen und kontrollieren ob Kanal noch frei
-  // neuer Kanal suchen
+  setAnt(state.actAnt);               // Antenne wechseln
+  if(++state.actFreqIdx >= 7)
+    state.actFreqIdx = 0;
+  SPI_MasterWriteReg(CC2500_FSCTRL0, pgm_read_byte(&freq[state.actFreqIdx]));
+}
 
-  if(state.RxTimeOut33++ == 0)
-  {
-    setAnt(state.actAnt);               // Antenne wechseln
-    if(++state.actFreqIdx >= 7)
-    {
-      state.actFreqIdx = 0;
-      SPI_MasterWriteReg(CC2500_FSCTRL0, pgm_read_byte(&freq[state.actFreqIdx]));
-      setFreeChan();                  // Achtung läuft länger als 2ms
-    }
-    else
-      SPI_MasterWriteReg(CC2500_FSCTRL0, pgm_read_byte(&freq[state.actFreqIdx]));
-  }
-  else if (state.RxTimeOut33 > 30)
-    state.RxTimeOut33 = 0;
-
+void setReceiveError(void)
+{
+  setAnt(state.actAnt);               // Antenne wechseln
+  ++state.errorcount;
 }
 
 void readBindData(void)
 {
-  uint8_t lqi;
+  MessageBind mes;
+  static uint8_t counter;
 
   SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
-  cc2500ReadBlock((int8_t *)&eeprom.bind, sizeof(eeprom.bind));
-  SPI_MasterTransmit(CC2500_SNOP);      // rssi interessiert hier niemand
-  lqi = SPI_MasterTransmit(CC2500_SNOP);
+  cc2500ReadBlock((int8_t *)&mes, sizeof(mes));
   cc2500BurstOff();
   setFrequencyOffset();                 // macht nicht viel Sinn, hat ja funktioniert
-  if((lqi & 0x80) && state.bindmode)
+  if(mes.crcOk)
   {
-    eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
-    state.bindmode = false;           // Neu initialisieren?
+    if(counter)
+    {
+      if((eeprom.bind.id == mes.data.id) && (eeprom.bind.step == mes.data.step))
+        ++counter;
+      else
+        counter = 0;
+      if(counter > 100)
+      {
+        eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
+        state.bindmode = false;
+        while(1);                   //       reset
+      }
+    }
+    else
+    {
+      eeprom.bind.id = mes.data.id;
+      eeprom.bind.step = mes.data.step;
+      ++counter;
+    }
   }
+  else
+    setReceiveError();
 }
 
 void getFailSafe(void)
@@ -478,36 +507,51 @@ void readData(void)
   SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
   cc2500ReadBlock((int8_t *)&mes, sizeof(mes));
   cc2500BurstOff();         // Burstzugriff rücksetzen
-  if(!mes.data.command.mode)
+  if(mes.crcOk)          // CRC ok
   {
-    if(mes.crcOk)          // CRC ok
+    if(!mes.data.command.mode)
     {
       uint8_t chan = mes.data.channel.channel;
       if(chan < 8)
       {
         output.chan_1us[chan] = mes.data.channel.chan_1us;
         output.timeOut[chan] = 0;
+        output.chanFlag &= ~(1 << chan);
+        if(output.chanMax < chan)
+          output.chanMax = chan;
+        if(output.chanMax < chan)
+          setupPulsesPPM();                    // Wenn alles gut war, Ausgänge aktivieren
         //???
         //output.chanMax = chan;                // Einmal muss es gehen, wegen init
-        //setupPulsesPPM();                    // Wenn alles gut war, Ausgänge aktivieren
       }
     }
-  }
-  else
-  {
-    if(mes.data.command.rts)
+    else
     {
-      IntTimer = 2;                   // Senden
-      state.RxCount = 7;
-    }
-    if(mes.data.command.command == 1)     // FailSafe Position setzen
-      setFailSafe();
+      if(mes.data.command.rts)
+        state.RxCount = 8;
+      if(mes.data.command.command == 1)     // FailSafe Position setzen
+        setFailSafe();
     // Achtung auch bei Ausfall des letzten Telegramms PPM erzeugen
         // Achtung je nach Kanal Latenz ausgleichen!!!
+    }
+    setFrequencyOffset();
+    if((mes.rssi > 50) || (mes.lqi < 5))   // Empfang schlecht
+      setAnt(state.actAnt);               // Antenne wechseln
+    state.errorcount = 0;
   }
-  setFrequencyOffset();
-  if((mes.rssi > 50) || (mes.lqi < 5))   // Empfang schlecht
-    setAnt(state.actAnt);               // Antenne wechseln
+  else
+    setReceiveError();
+}
+
+void sendTelemetrie(void)
+{
+  Telemetrie mes;
+
+  SPI_MasterTransmit(CC2500_STX);            // Enable TX
+  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
+  mes.sensor = 0;
+  mes.data = state.errorcount;
+  cc2500WriteSingle((int8_t *)&mes, sizeof(mes));
 }
 
 void processData(void)                // Nachsehen ob was da
@@ -520,32 +564,22 @@ void processData(void)                // Nachsehen ob was da
 //    TIFR2 &= ~(1 << OCF2A);
     if(state.bindmode)
     {
-      if(data_lengh == sizeof(BindData))
+      if(data_lengh == sizeof(MessageBind))
         readBindData();
+      else
+        setReceiveError();
     }
-    else if(data_lengh == 2)
+    else if(data_lengh == sizeof(Message))
       readData();
+    else
+      setReceiveError();
     cc2500FlushData();
-    setNextChanRx();
-    state.RxTimeOut = 0;
   }
   else
-    if(state.RxTimeOut > 100)           // 100 mal testen
-    {
-      if(state.RxTimeOut33++ == 0)
-        setNewRxPara();                   // Achtung nur alle 1 sec
-                                          // Ausfall mehrere kompletter Frames
-      else if (state.RxTimeOut33 > 102)
-        state.RxTimeOut33 = 0;
-    }
-    else      // Ausfall eines Telegramms
-    {         // Falls es das letzte war?
-      ++state.RxTimeOut;
-      setNextChanRx();
-    }
+    setReceiveError();
 }
 
-bool check_key(void)
+bool checkKey(void)
 {
   if(PIND & (1 << INP_D_KEY))
     return false;
@@ -594,6 +628,116 @@ void setBindMode(void)
   SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(BindData));
 }
 
+void rxState(void)
+{
+  static enum receiver rxstate;
+  static uint16_t counter;
+
+  switch(rxstate)
+  {
+  case Start:
+    if(checkKey())
+    {
+      setBindMode();
+      state.bindmode = true;
+    }
+    else
+      state.bindmode = false;
+    setFreeChan();                 // Kanal einstellen und Empfang ein
+    counter = 0;
+    rxstate = RxWaitStart;
+    break;
+  case RxWaitStart:                  // auf Empfänger warten
+    rxstate = checkRSSI;
+    break;
+  case checkRSSI:                   // Kanal frei?
+    if((counter > 100) || checkchanFree() ||
+        !(PIND & (1 << INP_D_CC2500_GDO0)) || get_RxCount())
+    {
+      counter = 0;
+      rxstate = waitForData;
+    }
+    else
+    {
+      setFreeChan();                 // Neuer Kanal einstellen und Empfang ein
+      ++counter;
+      rxstate = RxWaitStart;
+    }
+    break;
+  case waitForData:                 // Eine Sekunde auf Empfang warten
+    if(!(PIND & (1 << INP_D_CC2500_GDO0)))        // Einsprung über Timerinterrupt und Empfang läuft gerade
+      return;
+    if(get_RxCount())                           // daten da
+    {
+      setNextChan();
+      processData();                  // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
+      if(state.RxCount >= 8)
+      {
+        rxstate = TxOn;
+        state.RxCount = 0;
+      }
+      else
+      {
+        setRxOn();
+        rxstate = RxWait;
+      }
+      counter = 0;
+    }
+    else
+    {
+      if(counter % 128 == 127)
+        setNewRxFrequ();                // Frequenz verstellen
+      if(counter > 1000)                  // 1 Sekunde warten
+      {                                 // Neu initialisieren ??
+        setFreeChan();                 // Kanal einstellen und Empfang ein
+        counter = 0;
+        rxstate = RxWaitStart;
+      }
+      else
+        ++counter;
+    }
+    break;
+  case Main:                                    // Frequenz einstellen und Kalibrieren
+    if(!(PIND & (1 << INP_D_CC2500_GDO0)))        // Einsprung über Timerinterrupt und Empfang läuft gerade
+      return;
+    setNextChan();
+    processData();                  // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
+    if(state.errorcount > 200)       // 200 Telegramme nicht empfangen
+    {
+      setFreeChan();                 // Kanal einstellen und Empfang ein
+      counter = 0;
+      rxstate = RxWaitStart;
+    }
+    if(state.RxCount >= 8)
+    {
+      rxstate = TxOn;
+      state.RxCount = 0;
+    }
+    else
+    {
+      setRxOn();
+      rxstate = RxWait;
+    }
+    break;
+  case RxWait:                      // Daten empfangen
+    rxstate = Main;
+    ++state.RxCount;
+    break;
+  case TxOn:                      // Daten reinschreiben Sender einschalten und senden
+    sendTelemetrie();
+    rxstate = TxWait;
+    break;
+  case TxWait:                  // Jetzt wird weitergesendet
+    rxstate = RxOn;
+    break;
+  case RxOn:                    // Senden fertig, Empfänger ein
+    setNextChan();
+    setRxOn();
+    rxstate = RxWait;
+    break;
+  }
+}
+
 int main(void)
 {
   CLKPR = 0;
@@ -627,35 +771,15 @@ int main(void)
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
   cc2500_Init();
-  if(check_key())        // Taste prüfen
-  {
-    setBindMode();
-    state.bindmode = true;
-  }
   set_sleep_mode(SLEEP_MODE_IDLE);
   getFailSafe();
-//  wdt_enable(WDTO_30MS);
+  wdt_enable(WDTO_30MS);
   while(1){
     sleep_mode();                   //    warten bis was empfangen (Interrupt)
     //nur bei Timer 1ms Interrupt oder Int0, nicht bei PPM- Interrupt
     if(RxInterrupt)
     {
-      if(!(PIND & (1 << INP_D_CC2500_GDO0)))
-      {
-        processData();                  //    daten lesen
-        if(state.RxCount == 7)
-        {
-          /* Sender ein */
-        }
-        else
-        {
-          setNextChanRx();
-          IntTimer = 2;
-        ++state.RxCount;
-        if(state.RxCount >= 9)
-
-
-      }
+      rxState();
       RxInterrupt = false;
     }
     if(TIFR0 & (1 << TOV0))
@@ -664,11 +788,7 @@ int main(void)
       TIFR0 &= ~(1 << TOV0);
       set_led();
     }
-//    if(heartbeat == 0x3)
-//    {
-//      wdt_reset();
-//      heartbeat = 0;
-//    }
+    wdt_reset();
   }
 }
 

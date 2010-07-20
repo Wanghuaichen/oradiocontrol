@@ -85,7 +85,7 @@ int8_t SPI_MasterReadReg(uint8_t reg)
 
 uint8_t get_RxCount(void)                   // Anzahl Bytes im FIFO
 {
-  SPI_MasterTransmit(CC2500_RXBYTES & CC2500_READ_BURST);
+  SPI_MasterTransmit(CC2500_RXBYTES | CC2500_READ_BURST);
   return(SPI_MasterTransmit(0));
 }
 

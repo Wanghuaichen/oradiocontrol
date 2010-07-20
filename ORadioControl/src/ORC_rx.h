@@ -39,25 +39,34 @@ typedef struct t_State
 //  bool      scan:1;
 //  bool      lowLqiMode:1;
 //  bool      lastRxOkChanIdx:2;
-  uint8_t   RxTimeOut33;
-  uint8_t   RxTimeOut;
+//  uint8_t   RxTimeOut33;
+//  uint8_t   RxTimeOut;
   uint8_t   RxCount;        // 0 - 7
   uint8_t   actChan;        // Eingestellter Kanal
   uint8_t   actAnt:1;         // Eingestellte Antenne
-  int8_t    actFreqIdx:3;
-  uint8_t   dummy:3;
-  uint8_t   error;
-  uint16_t  errorcount;
+  uint8_t   actFreqIdx:3;
+  uint8_t   dummy:4;
+  uint8_t   error;              // Bitkodierte Fehler für LED
+  uint16_t  errorcount;         // Fehlerzähler für Empfänger
 }__attribute__((packed)) State;
 
 typedef struct t_OutputData
 {
+  uint8_t   chanFlag;
   uint16_t  chan_1us[8];       // Werte aller 8 Kanäle
   uint8_t   timeOut[8];          // Timer für FailSafe
   uint16_t  pulses2MHz[18];
   uint8_t   chanPtr:4;         // Kanalnummer aktuelle Ausgabe an die Servos
   uint8_t   chanMax:4;         // Anzahl der übertragenen Kanäle
 }__attribute__((packed)) OutputData;
+
+typedef struct t_MessageBind
+{
+  BindData  data;
+  uint8_t rssi;
+  uint8_t crcOk:1;
+  uint8_t lqi:7;
+}__attribute__((packed)) MessageBind;
 
 typedef struct t_Message
 {
@@ -76,9 +85,16 @@ typedef struct t_ChannelData
 
 enum receiver
 {
-  WaitPPM,                    // Warten auf Framestart
-  Wait,                       // 1ms warten
-  TXready,                    // auf FSTXON wechseln
-  TXon                        // Daten schreiben und Sender aktivieren
+  Start,
+  RxWaitStart,
+  checkRSSI,
+//  waitForBind,
+//  searchFreeChan,             // Freien Kanal suchen
+  waitForData,                // Warten bis Daten empfangen
+  Main,                       // Empfänger einstellen, Kalibrieren
+  RxWait,                    // 1ms warten
+  TxOn,                        // Daten schreiben und Sender aktivieren
+  TxWait,                      // Telemetrie senden
+  RxOn
+//  RxWaitBind                  // 1ms warten
 };
-
