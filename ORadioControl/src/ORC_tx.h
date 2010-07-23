@@ -42,7 +42,7 @@ typedef struct t_State
 typedef struct t_OutputData
 {
   uint16_t  chan_1us[8];       // Werte aller 8 Kanäle
-  uint8_t   chanPtr;           // Kanalnummer aktuelle Ausgabe
+//  uint8_t   chanPtr;
   uint8_t   chanNew;
 }__attribute__((packed)) OutputData;
 

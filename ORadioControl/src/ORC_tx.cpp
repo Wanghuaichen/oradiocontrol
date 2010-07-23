@@ -20,23 +20,23 @@ Was passiert wenn kein PPM- Frame kommt?  Sender sendet nur Telemetrie
 
  */
 
-//PIN 1   PD3   INT1/OC2B/PCINT19
+//PIN 1   PD3   INT1/OC2B/PCINT19                                       SW
 //PIN 2   PD4   XCK/T0/PCINT20
-//PIN 3   GND
-//PIN 4   VCC
-//PIN 5   GND
-//PIN 6   VCC
-//PIN 7   PB6   OSC
-//PIN 8   PB7   OSC
+//PIN 3   GND                                                           -
+//PIN 4   VCC                                                           -
+//PIN 5   GND                                                           -
+//PIN 6   VCC                                                           -
+//PIN 7   PB6   OSC                                                     8 MHz
+//PIN 8   PB7   OSC                                                     8 MHz
 //PIN 9   PD5   T1/OC0B/PCINT21
-//PIN 10  PD6   AIN0/OC0A/PCINT22
-//PIN 11  PD7   AIN1/OC2B/PCINT23
-//PIN 12  PB0   ICP1/CLKO/PCINT0
-//PIN 13  PB1   OC1A/PCINT1
-//PIN 14  PB2   SS/OC1B/PCINT2 (SPI Bus Master Slave select)
-//PIN 15  PB3   MOSI/OC2/PCINT3 (SPI Bus Master Output/Slave Input)
-//PIN 16  PB4   MISO/PCINT4 (SPI Bus Master Input/Slave Output)
-//PIN 17  PB5   SCK/PCINT5 (SPI Bus Master clock Input)
+//PIN 10  PD6   AIN0/OC0A/PCINT22                                       CANTB
+//PIN 11  PD7   AIN1/OC2B/PCINT23                                       CANTA
+//PIN 12  PB0   ICP1/CLKO/PCINT0                                        CRX
+//PIN 13  PB1   OC1A/PCINT1                                             CTX
+//PIN 14  PB2   SS/OC1B/PCINT2 (SPI Bus Master Slave select)            CC2500
+//PIN 15  PB3   MOSI/OC2/PCINT3 (SPI Bus Master Output/Slave Input)     CC2500
+//PIN 16  PB4   MISO/PCINT4 (SPI Bus Master Input/Slave Output)         CC2500
+//PIN 17  PB5   SCK/PCINT5 (SPI Bus Master clock Input)                 CC2500
 //PIN 18  AVCC
 //PIN 19  ADC6
 //PIN 20  AREF
@@ -86,11 +86,12 @@ Was passiert wenn kein PPM- Frame kommt?  Sender sendet nur Telemetrie
 
 
 /* EEMEM */ EEData eeprom;
-State state;
-OutputData output;
+volatile State state;
+volatile OutputData output;
 volatile uint16_t Timer1ms;
 volatile uint16_t Timer33ms;
 TelemetrieReceive TelemetrieMes;
+uint8_t uartBuf[11], uartRead;
 
 ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)              // Timer 1ms
 {
@@ -134,6 +135,14 @@ ISR(TIMER1_CAPT_vect, ISR_NOBLOCK)                  //8MHz capture
   timer_alt = timer1msTemp;
   chanPtr = chanPtrtemp;
 }
+
+ISR(USART_UDRE_vect, ISR_NOBLOCK)
+{
+  UDR0 = uartBuf[uartRead++];
+  if(!uartBuf[uartRead++])
+    RES_BIT(UCSR0B, UDRIE0);                // USART- Interrupt aus
+}
+
 
 void SPI_MasterInit(void)
 {
@@ -199,8 +208,8 @@ void setBindMode(void)
 void setNextChan(void)                // Kanal schreiben
 {
   uint16_t tempChan = state.actChan + eeprom.step * 2 + 1;
-  if(tempChan > 205)
-    tempChan -= (205 + 1);
+  if(tempChan > MAXHOPPCHAN)
+    tempChan -= (MAXHOPPCHAN + 1);
   state.actChan = tempChan;
   SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
 }
@@ -268,7 +277,8 @@ void calcNewId(void)
 //    if(eeprom.step > 204)
 //      eeprom.step -= (204 + 1);
   }
-  while((eeprom.id == 0) || (eeprom.step == 0));
+  while((eeprom.id == 0) || (eeprom.step == 0) ||
+        (eeprom.id == 0xff) || (eeprom.step == 0xff));
   eeprom_write_block(&eeprom, 0, sizeof(eeprom));
 }
 
@@ -295,11 +305,26 @@ void TxSendData(bool lastFlag)
 
 uint8_t searchChan(void)
 {
-  if(output.chanNew)
+  uint8_t chanNewTmp = output.chanNew, x;
+  static uint8_t i;
+
+  if(chanNewTmp)
   {
-    uint8_t i = 0;
-    while(output.chanNew & (1 << i++));
-    return(i);
+    uint8_t y = 1 << i;
+    while(1)
+    {
+      ++i;
+      i &= 7;
+      y = y << 1;
+      if(y == 0) y = 1;
+      if((x = chanNewTmp & y) == 0)    // 8 Bit Arithmetik erzwingen
+      {
+        cli();
+        output.chanNew &= ~y;               // nicht atomic!
+        sei();
+        return(i + 1);
+      }
+    }
   }
   else
     return(0);
@@ -313,14 +338,10 @@ void TxSendChan(void)
   // Kanal suchen der gesendet werden soll
   if((tempPtr = searchChan()))    // Wird im Interrupt geändert
   {
+    --tempPtr;
     mes.mode = 0;
     mes.channel = tempPtr;
     mes.chan_1us = output.chan_1us[tempPtr];
-    if(tempPtr >= state.maxChan)      // letzter Kanal
-      tempPtr = 0;
-    else
-      ++tempPtr;          // Überlauf wird oben abgefangen
-//    output.chanPtr = tempPtr;
   }
   else
   {                       // Es ist nichts da, dann Daten senden
@@ -333,14 +354,39 @@ void TxReceive()
 {
   if(get_RxCount() == sizeof(TelemetrieMes))
   {
-    if(TelemetrieMes.crcOk)
-    {
-      SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
-      cc2500ReadBlock((int8_t *)&TelemetrieMes, sizeof(TelemetrieMes));
-      cc2500BurstOff();         // Burstzugriff rücksetzen
-    }
+    SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
+    cc2500ReadBlock((int8_t *)&TelemetrieMes, sizeof(TelemetrieMes));
+    cc2500BurstOff();         // Burstzugriff rücksetzen
   }
-  cc2500FlushData();
+  else
+    cc2500FlushData();
+}
+
+prog_int8_t APM hex[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                         '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
+void sendTelemetrie2UART(void)
+{
+  if(TelemetrieMes.crcOk)
+  {
+    UDR0 = 'S';
+    while(!(UCSR0A & (1 << UDRE0)));
+    UDR0 = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x1000]);
+    uartBuf[0] = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x100 % 0x10]);
+    uartBuf[1] = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x10 % 0x10]);
+    uartBuf[2] = pgm_read_byte(&hex[TelemetrieMes.data.sensor % 0x10]);
+    uartBuf[3] = ' ';
+    uartBuf[4] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x1000]);
+    uartBuf[5] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x100 % 0x10]);
+    uartBuf[6] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x10 % 0x10]);
+    uartBuf[7] = pgm_read_byte(&hex[TelemetrieMes.data.data % 0x10]);
+    uartBuf[8] = '\r';
+    uartBuf[9] = '\n';
+    uartBuf[10] = 0;
+    TelemetrieMes.crcOk = false;
+    uartRead = 0;
+    SET_BIT(UCSR0B, UDRIE0);                // USART- Interrupt ein
+  }
 }
 
 void chkFailSafe(void)
@@ -393,6 +439,7 @@ void txState(void)
     break;
   case TxOn:                      // Daten senden
     cc2500_TxNormOn();            // Sender aktivieren, Daten senden
+    sendTelemetrie2UART();        // Hier ist am meisten Zeit
     if(!state.txCount)
       txstate = RxOn;
     else
@@ -455,14 +502,14 @@ int main(void)
 
 // Timer0 32,768ms für clock
   TCCR0B = (5 << CS00);
-  TIFR0 = 0;
+  TIFR0 = 0xff;
   TIMSK0 = 0;
 
 // Timer1 8MHz   PPM Capture
   TCCR1A = (0 << WGM10);
   TCCR1B = (1 << ICNC1) | (1 << WGM12) | (1 << CS10);      // CTC OCR1A, 8MHz
   TCNT1 = 0;
-  TIFR1 = 0;
+  TIFR1 = 0xff;
   TIMSK1 = (1 << ICIE1);
 
 
@@ -470,7 +517,7 @@ int main(void)
   TCCR2A = 0;
   TCCR2B = (1 << WGM21) | (3 << CS20);      //  CTC mode, clk/32
   OCR2A  = (F_CPU * 10 / 32 / 10000);       // ergibt 1ms (1000Hz)
-  TIFR2  = (1 << OCF2A);
+  TIFR2  = 0xff;
   TIMSK2 = (1 << OCIE2A);
 
 //  wdt_enable(WDTO_500MS);
@@ -479,7 +526,8 @@ int main(void)
 //  EIFR = 0;
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
-  if((eeprom.id == 0) || (eeprom.step == 0))
+  if((eeprom.id == 0) || (eeprom.step == 0) ||
+      (eeprom.id == 0xff) || (eeprom.step == 0xff))
     calcNewId();
   cc2500_Init();
   set_sleep_mode(SLEEP_MODE_IDLE);
@@ -498,7 +546,7 @@ int main(void)
     if(TIFR0 & (1 << TOV0))
     {
       ++Timer33ms;
-      TIFR0 &= ~(1 << TOV0);
+      SET_BIT(TIFR0, TOV0);
       set_led();
     }
     wdt_reset();

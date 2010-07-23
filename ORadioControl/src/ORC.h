@@ -79,6 +79,7 @@ extern prog_uint8_t APM cc2500InitValue[41];
 #define K_DUMMY 0x0000
 #define K_SETFAILESAFEPOS 0x0001
 #define K_MODEFAILSAFE
+#define MAXHOPPCHAN 204
 
 typedef struct t_MessageChan
 {
@@ -113,7 +114,7 @@ typedef union t_MessageData
 
 typedef struct t_Telemetrie
 {
-  uint8_t   sensor;
+  uint16_t  sensor;
   uint16_t  data;
 }__attribute__((packed)) Telemetrie;
 
