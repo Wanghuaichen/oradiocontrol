@@ -476,8 +476,11 @@ void cc2500_Init(void)
   while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
   cc2500BurstOff();       // SS wegnehmen
   _delay_us(40);                    // warten 40us wegen SS
+  SPI_MasterWriteReg(CC2500_TEST2, 0x81);
+  SPI_MasterWriteReg(CC2500_TEST1, 0x35);
   SPI_MasterWriteReg(CC2500_SYNC0,(unsigned char)eeprom.bind.id);
   SPI_MasterWriteReg(CC2500_SYNC1,(unsigned char)(eeprom.bind.id >> 8));
+  cc2500setPatableMax();
 }
 
 void setNextChan(void)                // Kanal schreiben
@@ -487,6 +490,7 @@ void setNextChan(void)                // Kanal schreiben
     tempChan -= (MAXHOPPCHAN + 1);
   state.actChan = tempChan;
   SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
+  SPI_MasterTransmit(CC2500_SFTX);
   SPI_MasterTransmit(CC2500_SFSTXON);       // Kalibrieren
 }
 
@@ -523,6 +527,7 @@ void setAnt(bool ant)
 bool checkchanFree(void)            // False: Kanal frei
 {
   int8_t rssi = SPI_MasterReadReg(CC2500_RSSI | CC2500_READ_BURST);
+  cc2500BurstOff();
   return(rssi > 0);
 }
 
@@ -558,9 +563,7 @@ void readBindData(void)
   MessageBind mes;
   static uint8_t counter;
 
-  SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
   cc2500ReadBlock((int8_t *)&mes, sizeof(mes));
-  cc2500BurstOff();
   setFrequencyOffset();                 // macht nicht viel Sinn, hat ja funktioniert
   if(mes.crcOk)
   {
@@ -631,9 +634,7 @@ void readData(void)
   Message mes;
   static uint8_t chanOld;
 
-  SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
   cc2500ReadBlock((int8_t *)&mes, sizeof(mes));
-  cc2500BurstOff();         // Burstzugriff rücksetzen
   if(mes.crcOk)          // CRC ok
   {
     if(!mes.data.command.mode)
@@ -899,9 +900,17 @@ int main(void)
   static uint8_t timer1msOld;
 
   CLKPR = 0;
-  PORTB = 0x04;   DDRB = (1<<OUT_B_SPI_MISO) | (1<<OUT_B_SPI_SCK) | (1<<OUT_B_SPI_SS);    //prüfen
-  PORTC = 0x0;    DDRC = 0x3f;
-  PORTD = 0x50;   DDRD = 0x53;
+
+  PORTB = (1<<OUT_B_SPI_SS);
+  DDRB = (1<<OUT_B_SPI_MISO) | (1<<OUT_B_SPI_SCK) | (1<<OUT_B_SPI_SS);    //prüfen
+
+  PORTC = 0x0;
+  DDRC = (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5) |
+         (1 << OUT_C_CHANNEL6) | (1 << OUT_C_CHANNEL7) | (1 << OUT_C_CHANNEL8);
+
+  PORTD = 0x0;
+  DDRD = (1 << OUT_D_LED) | (1 << OUT_D_ANT1) | (1 << OUT_D_ANT2) |
+         (1 << OUT_D_CHANNEL1) | (1 << OUT_D_CHANNEL2);
 
 // Timer0 25 ms für LED und Failsafe
   TCCR0B = (2 << WGM00) | (5 << CS00);

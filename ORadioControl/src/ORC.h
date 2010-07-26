@@ -69,6 +69,8 @@ extern void cc2500WriteBlock(int8_t *, uint8_t);
 extern void cc2500WriteSingle(int8_t *, uint8_t);
 extern void setFrequencyOffset(void);
 extern uint8_t get_Data(void);
+extern void cc2500setPatableMax(void);
+extern void cc2500BurstOff(void);
 
 extern prog_uint8_t APM cc2500InitValue[41];
 
@@ -79,7 +81,7 @@ extern prog_uint8_t APM cc2500InitValue[41];
 #define K_DUMMY 0x0000
 #define K_SETFAILESAFEPOS 0x0001
 #define K_MODEFAILSAFE
-#define MAXHOPPCHAN 204
+#define MAXHOPPCHAN 195               // muss ungerade sein
 
 typedef struct t_MessageChan
 {

@@ -20,63 +20,59 @@ Was passiert wenn kein PPM- Frame kommt?  Sender sendet nur Telemetrie
 
  */
 
-//PIN 1   PD3   INT1/OC2B/PCINT19                                       SW
-//PIN 2   PD4   XCK/T0/PCINT20
+//PIN 1   PD3   INT1/OC2B/PCINT19                                       GDO2          I
+//PIN 2   PD4   XCK/T0/PCINT20                                          EEPROM        I
 //PIN 3   GND                                                           -
 //PIN 4   VCC                                                           -
 //PIN 5   GND                                                           -
 //PIN 6   VCC                                                           -
 //PIN 7   PB6   OSC                                                     8 MHz
 //PIN 8   PB7   OSC                                                     8 MHz
-//PIN 9   PD5   T1/OC0B/PCINT21
-//PIN 10  PD6   AIN0/OC0A/PCINT22                                       CANTB
-//PIN 11  PD7   AIN1/OC2B/PCINT23                                       CANTA
-//PIN 12  PB0   ICP1/CLKO/PCINT0                                        CRX
-//PIN 13  PB1   OC1A/PCINT1                                             CTX
-//PIN 14  PB2   SS/OC1B/PCINT2 (SPI Bus Master Slave select)            CC2500
-//PIN 15  PB3   MOSI/OC2/PCINT3 (SPI Bus Master Output/Slave Input)     CC2500
-//PIN 16  PB4   MISO/PCINT4 (SPI Bus Master Input/Slave Output)         CC2500
-//PIN 17  PB5   SCK/PCINT5 (SPI Bus Master clock Input)                 CC2500
+//PIN 9   PD5   T1/OC0B/PCINT21                                         CRX  LOW      O
+//PIN 10  PD6   AIN0/OC0A/PCINT22
+//PIN 11  PD7   AIN1/OC2B/PCINT23
+//PIN 12  PB0   ICP1/CLKO/PCINT0                                        PPM LOWAKTIV  I
+//PIN 13  PB1   OC1A/PCINT1                                             CTX  HIGH     O
+//PIN 14  PB2   SS/OC1B/PCINT2 (SPI Bus Master Slave select)            CC2500        O
+//PIN 15  PB3   MOSI/OC2/PCINT3 (SPI Bus Master Output/Slave Input)     CC2500        O
+//PIN 16  PB4   MISO/PCINT4 (SPI Bus Master Input/Slave Output)         CC2500        I
+//PIN 17  PB5   SCK/PCINT5 (SPI Bus Master clock Input)                 CC2500        I
 //PIN 18  AVCC
-//PIN 19  ADC6
+//PIN 19  ADC6                                                          R
 //PIN 20  AREF
 //PIN 21  GND
 //PIN 22  ADC7
-//PIN 23  PC0   ADC0/PCINT8
-//PIN 24  PC1   ADC1/PCINT9
-//PIN 25  PC2   ADC2/PCINT10
+//PIN 23  PC0   ADC0/PCINT8                                             LED2          O
+//PIN 24  PC1   ADC1/PCINT9                                             LED1          O
+//PIN 25  PC2   ADC2/PCINT10                                            TASTER        I
 //PIN 26  PC3   ADC3/PCINT11
-//PIN 27  PC4   SDA/ADC4/PCINT12
-//PIN 28  PC5   SCL/ADC5/PCINT13
-//PIN 29  PC6   RESET/PCINT14
-//PIN 30  PD0   RXD/PCINT16
-//PIN 31  PD1   TXD/PCINT17
-//PIN 32  PD2   INT0/PCINT18
+//PIN 27  PC4   SDA/ADC4/PCINT12                                        EEPROM        I
+//PIN 28  PC5   SCL/ADC5/PCINT13                                        EEPROM        I
+//PIN 29  PC6   RESET/PCINT14                                           RESET         I
+//PIN 30  PD0   RXD/PCINT16                                             PINLEISTE     I
+//PIN 31  PD1   TXD/PCINT17                                             PINLEISTE     O
+//PIN 32  PD2   INT0/PCINT18                                            GDO0          I
 
 
 #define OUT_B_SPI_SS PORTB2
 #define OUT_B_SPI_MOSI PORTB3
-#define OUT_B_SPI_MISO PORTB4
+#define INP_B_SPI_MISO PORTB4
 #define OUT_B_SPI_SCK PORTB5
-#define OUT_D_LED PORTD4
-#define OUT_D_ANT1 PORTD6
-#define OUT_D_ANT2 PORTD7               // Antenne 2????
+#define INP_B_PPM PINB0
+#define OUT_B_CTX PORTB1
 
-#define OUT_D_CANAL1 PORTD1
-#define OUT_D_CANAL2 PORTD2
-#define OUT_C_CANAL3 PORTC5
-#define OUT_C_CANAL4 PORTC4
-#define OUT_C_CANAL5 PORTC3
-#define OUT_C_CANAL6 PORTC2
-#define OUT_C_CANAL7 PORTC1
-#define OUT_C_CANAL8 PORTC0
+#define OUT_C_LED1 PORTC0
+#define OUT_C_LED2 PORTC1
+#define INP_C_KEY PINC2
 
-#define INP_D_CC2500_GDO0 PORTD2
-#define INP_D_CC2500_GDO2 PORTD3
-#define INP_D_KEY PORTD5
+#define INP_D_CC2500_GDO0 PIND2
+#define INP_D_CC2500_GDO2 PIND3
+#define OUT_D_CRX  PORTD5
 
-#define LED_OFF SET_BIT(PORTD, OUT_D_LED)
-#define LED_ON RES_BIT(PORTD, OUT_D_LED)
+#define LED1_OFF RES_BIT(PORTC, PORTC1)
+#define LED1_ON SET_BIT(PORTC, PORTC1)
+#define LED2_OFF RES_BIT(PORTC, PORTC0)
+#define LED2_ON SET_BIT(PORTC, PORTC0)
 
 #define FOSC 8000000 // Clock Speed
 #define BAUD 19200
@@ -166,6 +162,12 @@ uint8_t SPI_MasterTransmit(uint8_t cData)
   return(SPDR);
 }
 
+void cc2500BurstOff(void)
+{
+  PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
+  while(!(PINB & (1<<OUT_B_SPI_SS)));
+}
+
 void cc2500_Init(void)
 {
 //  register uint8_t i;
@@ -179,23 +181,20 @@ void cc2500_Init(void)
   while(PIND & (1<<INP_D_CC2500_GDO2))          //CHIP_RDY, warten bis bereit
       ;
 
-  SPI_MasterTransmit(CC2500_WRITE_BURST);
+  SPI_MasterTransmit(CC2500_IOCFG2 | CC2500_WRITE_BURST);
 //  for(i = 0;i < sizeof(cc2500InitValue);++i)
   do
   {
     SPI_MasterTransmit(pgm_read_byte(init++));
   }
   while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
-  PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
+  cc2500BurstOff();       // SS wegnehmen
   _delay_us(40);                    // warten 40us wegen SS
+  SPI_MasterWriteReg(CC2500_TEST2, 0x81);
+  SPI_MasterWriteReg(CC2500_TEST1, 0x35);
   SPI_MasterWriteReg(CC2500_SYNC0,(unsigned char)eeprom.id);
   SPI_MasterWriteReg(CC2500_SYNC1,(unsigned char)(eeprom.id >> 8));
-}
-
-void cc2500BurstOff(void)
-{
-  PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
-  while(!(PINB & (1<<OUT_B_SPI_SS)));
+  cc2500setPatableMax();
 }
 
 void setBindMode(void)
@@ -216,21 +215,26 @@ void setNextChan(void)                // Kanal schreiben
 
 void setNextChanTx(void)                // Kanal schreiben und nach FSTXON
 {
+  RES_BIT(PORTB, OUT_B_CTX);
+  RES_BIT(PORTD, OUT_D_CRX);
   setNextChan();
   SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(MessageData));
-  SPI_MasterTransmit(CC2500_SFSTXON); // Antennenumschalter ?
+  SPI_MasterTransmit(CC2500_SFTX);
+  SPI_MasterTransmit(CC2500_SFSTXON);
 }
 
 void setNextChanRx(void)                // Kanal schreiben und nach Rx
 {
   setNextChan();
   SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
-  SPI_MasterTransmit(CC2500_SRX);    // Antennenumschalter ?
+  SPI_MasterTransmit(CC2500_SRX);
+  RES_BIT(PORTB, OUT_B_CTX);
+  SET_BIT(PORTD, OUT_D_CRX);
 }
 
 bool checkKey(void)
 {
-  return(!(PIND & (1 << INP_D_KEY)));
+  return(!(PINC & (1 << INP_C_KEY)));
 }
 
 void set_led(void)
@@ -243,9 +247,9 @@ void set_led(void)
   if(timerTemp - timer_alt > 10)
   {
     if(led_count & 1)
-      LED_ON;
+      LED1_ON;
     else
-      LED_OFF;
+      LED1_OFF;
     timer_alt = timerTemp;
 
     if((led_count & 0xf) == 0)
@@ -273,7 +277,7 @@ void calcNewId(void)
   {
     eeprom.id += TCNT0 + TCNT1 + TCNT2;
     eeprom.step += eeprom.id;
-    eeprom.step &= 0x7f;
+    eeprom.step &= 0x3f;
 //    if(eeprom.step > 204)
 //      eeprom.step -= (204 + 1);
   }
@@ -353,11 +357,7 @@ void TxSendChan(void)
 void TxReceive()
 {
   if(get_RxCount() == sizeof(TelemetrieMes))
-  {
-    SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
     cc2500ReadBlock((int8_t *)&TelemetrieMes, sizeof(TelemetrieMes));
-    cc2500BurstOff();         // Burstzugriff rücksetzen
-  }
   else
     cc2500FlushData();
 }
@@ -399,6 +399,8 @@ void cc2500_TxNormOn(void)
 {
   // heiße Sache, CPU hat 0,64ms Zeit um die Daten zu schreiben
   // aber das Timing ist schon konstant!
+  SET_BIT(PORTB, OUT_B_CTX);
+  RES_BIT(PORTD, OUT_D_CRX);                // Pause ???
   SPI_MasterTransmit(CC2500_STX);            // Enable TX;
   if(state.txCount >= 7)
   {
@@ -414,6 +416,8 @@ void cc2500_TxNormOn(void)
 
 void cc2500_TxBindOn(void)
 {
+  SET_BIT(PORTB, OUT_B_CTX);
+  RES_BIT(PORTD, OUT_D_CRX);
   SPI_MasterTransmit(CC2500_STX);            // Enable TX
   int8_t *p = (int8_t *)&eeprom;
   for(uint8_t i = 0;i < sizeof(eeprom);++i)
@@ -496,9 +500,10 @@ void USART_Init( unsigned int ubrr)
 int main(void)
 {
   CLKPR = 0;
-  PORTB = 0x04;   DDRB = (1<<OUT_B_SPI_MISO) | (1<<OUT_B_SPI_SCK) | (1<<OUT_B_SPI_SS);    //prüfen
-  PORTC = 0x0;    DDRC = 0x3f;
-  PORTD = 0x50;   DDRD = 0x53;
+  PORTB = 0x0;    DDRB = (1<<OUT_B_SPI_MOSI) | (1<<OUT_B_SPI_SCK) |
+                         (1<<OUT_B_SPI_SS) | (1 << OUT_B_CTX);
+  PORTC = 0x0;    DDRC = (1 << OUT_C_LED1) | (1 << OUT_C_LED2);
+  PORTD = 0x0;    DDRD = (1 << OUT_D_CRX);
 
 // Timer0 32,768ms für clock
   TCCR0B = (5 << CS00);
@@ -506,8 +511,8 @@ int main(void)
   TIMSK0 = 0;
 
 // Timer1 8MHz   PPM Capture
-  TCCR1A = (0 << WGM10);
-  TCCR1B = (1 << ICNC1) | (1 << WGM12) | (1 << CS10);      // CTC OCR1A, 8MHz
+  TCCR1A = 0;
+  TCCR1B = (1 << ICNC1) | (1 << CS10);      // 8MHz
   TCNT1 = 0;
   TIFR1 = 0xff;
   TIMSK1 = (1 << ICIE1);
