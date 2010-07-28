@@ -135,18 +135,17 @@ ISR(TIMER1_CAPT_vect, ISR_NOBLOCK)                  //8MHz capture
 ISR(USART_UDRE_vect, ISR_NOBLOCK)
 {
   UDR0 = uartBuf[uartRead++];
-  if(!uartBuf[uartRead++])
+  if(!uartBuf[uartRead])
     RES_BIT(UCSR0B, UDRIE0);                // USART- Interrupt aus
 }
-
 
 void SPI_MasterInit(void)
 {
   /* Set MOSI and SCK and SS output, all others input */
   PORTB |=  (1<<OUT_B_SPI_SS);
+  SPSR = 0;
   /* Enable SPI, Master, set clock rate fck/2 */
   SPCR = (1<<SPE)|(1<<MSTR);
-  SPSR = (1<<SPI2X);      // Double SPI Speed Bit
 }
 
 uint8_t SPI_MasterTransmit(uint8_t cData)
@@ -362,8 +361,15 @@ void TxReceive()
     cc2500FlushData();
 }
 
-prog_int8_t APM hex[] = {'0', '1', '2', '3', '4', '5', '6', '7',
-                         '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+uint8_t b2hex(uint8_t bin)
+{
+  if(bin > 9)
+    bin += 'A' - 10 - '0';
+  return(bin + '0');
+}
+
+//prog_int8_t APM hex[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+//                         '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
 void sendTelemetrie2UART(void)
 {
@@ -371,15 +377,24 @@ void sendTelemetrie2UART(void)
   {
     UDR0 = 'S';
     while(!(UCSR0A & (1 << UDRE0)));
-    UDR0 = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x1000]);
-    uartBuf[0] = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x100 % 0x10]);
-    uartBuf[1] = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x10 % 0x10]);
-    uartBuf[2] = pgm_read_byte(&hex[TelemetrieMes.data.sensor % 0x10]);
+//    UDR0 = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x1000]);
+//    uartBuf[0] = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x100 % 0x10]);
+//    uartBuf[1] = pgm_read_byte(&hex[TelemetrieMes.data.sensor / 0x10 % 0x10]);
+//    uartBuf[2] = pgm_read_byte(&hex[TelemetrieMes.data.sensor % 0x10]);
+//    uartBuf[3] = ' ';
+//    uartBuf[4] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x1000]);
+//    uartBuf[5] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x100 % 0x10]);
+//    uartBuf[6] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x10 % 0x10]);
+//    uartBuf[7] = pgm_read_byte(&hex[TelemetrieMes.data.data % 0x10]);
+    UDR0 = b2hex(TelemetrieMes.data.sensor / 0x1000);
+    uartBuf[0] = b2hex(TelemetrieMes.data.sensor / 0x100 % 0x10);
+    uartBuf[1] = b2hex(TelemetrieMes.data.sensor / 0x10 % 0x10);
+    uartBuf[2] = b2hex(TelemetrieMes.data.sensor % 0x10);
     uartBuf[3] = ' ';
-    uartBuf[4] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x1000]);
-    uartBuf[5] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x100 % 0x10]);
-    uartBuf[6] = pgm_read_byte(&hex[TelemetrieMes.data.data / 0x10 % 0x10]);
-    uartBuf[7] = pgm_read_byte(&hex[TelemetrieMes.data.data % 0x10]);
+    uartBuf[4] = b2hex(TelemetrieMes.data.data / 0x1000);
+    uartBuf[5] = b2hex(TelemetrieMes.data.data / 0x100 % 0x10);
+    uartBuf[6] = b2hex(TelemetrieMes.data.data / 0x10 % 0x10);
+    uartBuf[7] = b2hex(TelemetrieMes.data.data % 0x10);
     uartBuf[8] = '\r';
     uartBuf[9] = '\n';
     uartBuf[10] = 0;
@@ -495,6 +510,18 @@ void USART_Init( unsigned int ubrr)
   UCSR0A = 0;
   UCSR0B = (1<<RXEN0)|(1<<TXEN0);           /* Enable receiver and transmitter */
   UCSR0C = (3<<UCSZ00);                     /* Set frame format: 8data, 1stop bit */
+
+  uartBuf[0] = 'H';
+  uartBuf[1] = 'a';
+  uartBuf[2] = 'l';
+  uartBuf[3] = 'l';
+  uartBuf[4] = 'o';
+  uartBuf[5] = '\r';
+  uartBuf[6] = '\n';
+  uartBuf[7] = 0;
+  uartRead = 0;
+  SET_BIT(UCSR0B, UDRIE0);                // USART- Interrupt ein
+
 }
 
 int main(void)
@@ -530,14 +557,20 @@ int main(void)
 //  EIMSK = 0;
 //  EIFR = 0;
 
+  SPI_MasterInit();
+
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
   if((eeprom.id == 0) || (eeprom.step == 0) ||
       (eeprom.id == 0xff) || (eeprom.step == 0xff))
     calcNewId();
   cc2500_Init();
+
+  LED2_ON;
+
   set_sleep_mode(SLEEP_MODE_IDLE);
   wdt_enable(WDTO_30MS);
   USART_Init(MYUBRR);
+
   while(1){
     uint16_t old1ms;
     do

@@ -429,9 +429,9 @@ void SPI_MasterInit(void)
 {
   /* Set MOSI and SCK and SS output, all others input */
   PORTB |=  (1<<OUT_B_SPI_SS);
+  SPSR = 0;
   /* Enable SPI, Master, set clock rate fck/2 */
   SPCR = (1<<SPE)|(1<<MSTR);
-  SPSR = (1<<SPI2X);      // Double SPI Speed Bit
 }
 
 uint8_t SPI_MasterTransmit(uint8_t cData)
