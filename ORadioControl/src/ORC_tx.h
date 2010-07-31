@@ -15,8 +15,10 @@
 
 typedef struct t_EEData
 {
+//  uint8_t       flyMode:1;
   uint16_t      id;     //sync
   uint8_t       step;
+  uint16_t      checksum;
 }__attribute__((packed)) EEData;
 
 typedef struct t_State
@@ -63,7 +65,6 @@ enum transmitter
   RxWait2,                    // 1ms warten
   RxWait3,
   RxCalc,
-  TxWait,                      // Bind- Mode
   TxBindCheck,
   TxNextChanBind,
   TxOnBind,

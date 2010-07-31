@@ -58,6 +58,7 @@ typedef PROGMEM void (*FuncP_PROGMEM)(void);
 
 extern void SPI_MasterInit(void);
 extern uint8_t SPI_MasterTransmit(uint8_t);
+extern void SPI_MasterTransmit_void(uint8_t);
 extern void SPI_MasterWriteReg(uint8_t, int8_t);
 extern int8_t SPI_MasterReadReg(uint8_t);
 extern void cc2500_Init(void);
@@ -65,17 +66,23 @@ extern uint8_t get_RxCount(void);
 extern void cc2500FlushData(void);
 extern void cc2500_RxOn(void);
 extern void cc2500ReadBlock(int8_t *, uint8_t);
+extern void cc2500ReadSingle(int8_t *, uint8_t);
 extern void cc2500WriteBlock(int8_t *, uint8_t);
 extern void cc2500WriteSingle(int8_t *, uint8_t);
 extern void setFrequencyOffset(void);
 extern uint8_t get_Data(void);
 extern void cc2500setPatableMax(void);
-extern void cc2500BurstOff(void);
+extern void cc2500_Off(void);
 
 extern prog_uint8_t APM cc2500InitValue[41];
 
 #define SET_BIT(port,bit)  (port |=  (1<<bit))
 #define RES_BIT(port,bit)  (port &= (uint8_t)~(1<<bit))
+#define WAIT_SPI_READY {while(!(SPSR & (1<<SPIF)));}
+#define WAIT_C2500_READY {while(PIND & (1<<INP_D_CC2500_GDO2));}
+#define CS_C2500_ACTIV { RES_BIT(PORTB, OUT_B_SPI_SS); while(PINB & (1<<OUT_B_SPI_SS));}
+#define CS_C2500_OFF { SET_BIT(PORTB, OUT_B_SPI_SS); while(!(PINB & (1<<OUT_B_SPI_SS)));}
+
 
 #define BINDMODEID 0x1009
 #define K_DUMMY 0x0000

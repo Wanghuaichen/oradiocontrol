@@ -425,64 +425,6 @@ void setupPulses(uint8_t chan)
 ////  set_sleep_mode(SLEEP_MODE_IDLE);
 //}
 
-void SPI_MasterInit(void)
-{
-  /* Set MOSI and SCK and SS output, all others input */
-  PORTB |=  (1<<OUT_B_SPI_SS);
-  SPSR = 0;
-  /* Enable SPI, Master, set clock rate fck/2 */
-  SPCR = (1<<SPE)|(1<<MSTR);
-}
-
-uint8_t SPI_MasterTransmit(uint8_t cData)
-{
-  PORTB &= ~(1<<OUT_B_SPI_SS);
-  while(PINB & (1<<OUT_B_SPI_SS));
-  while(PIND & (1<<INP_D_CC2500_GDO2))                   // warten bis bereit
-    ;                                                   // Ist eigentlich unnötig
-  /* Wait for transmission complete */
-  /* Start transmission */
-  SPDR = cData;
-  while(!(SPSR & (1<<SPIF)))
-    ;
-  return(SPDR);
-}
-
-void cc2500BurstOff(void)
-{
-  PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
-  while(!(PINB & (1<<OUT_B_SPI_SS)));
-}
-
-void cc2500_Init(void)
-{
-//  register uint8_t i;
-//  register unsigned char counter asm("r3");
-  prog_uint8_t *init = cc2500InitValue;
-
-  SPI_MasterTransmit(CC2500_SRES);
-  PORTB |= (1<<OUT_B_SPI_SS);       // SS wegnehmen
-  _delay_us(40);                    // warten 40us
-  PORTB &= ~(1<<OUT_B_SPI_SS);      // SS setzen
-  while(PIND & (1<<INP_D_CC2500_GDO2))          //CHIP_RDY, warten bis bereit
-      ;
-
-  SPI_MasterTransmit(CC2500_IOCFG2 | CC2500_WRITE_BURST);
-//  for(i = 0;i < sizeof(cc2500InitValue);++i)
-  do
-  {
-    SPI_MasterTransmit(pgm_read_byte(init++));
-  }
-  while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
-  cc2500BurstOff();       // SS wegnehmen
-  _delay_us(40);                    // warten 40us wegen SS
-  SPI_MasterWriteReg(CC2500_TEST2, 0x81);
-  SPI_MasterWriteReg(CC2500_TEST1, 0x35);
-  SPI_MasterWriteReg(CC2500_SYNC0,(unsigned char)eeprom.bind.id);
-  SPI_MasterWriteReg(CC2500_SYNC1,(unsigned char)(eeprom.bind.id >> 8));
-  cc2500setPatableMax();
-}
-
 void setNextChan(void)                // Kanal schreiben
 {
   uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
@@ -491,7 +433,7 @@ void setNextChan(void)                // Kanal schreiben
   state.actChan = tempChan;
   SPI_MasterWriteReg(CC2500_CHANNR, tempChan);
   SPI_MasterTransmit(CC2500_SFTX);
-  SPI_MasterTransmit(CC2500_SFSTXON);       // Kalibrieren
+  SPI_MasterTransmit(CC2500_SRX);       // Kalibrieren
 }
 
 //void setTxOn(void)                // Kanal schreiben und nach FSTXON
@@ -499,6 +441,16 @@ void setNextChan(void)                // Kanal schreiben
 //  setNextChan();
 //  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
 //}
+
+void setPaketsizeReceive(void)
+{
+  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(MessageData));
+}
+
+void setPaketsizeSend(void)
+{
+  SPI_MasterWriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
+}
 
 void setRxOn(void)                // Kanal schreiben und nach Rx
 {
@@ -527,7 +479,7 @@ void setAnt(bool ant)
 bool checkchanFree(void)            // False: Kanal frei
 {
   int8_t rssi = SPI_MasterReadReg(CC2500_RSSI | CC2500_READ_BURST);
-  cc2500BurstOff();
+  cc2500_Off();
   return(rssi > 0);
 }
 
@@ -797,7 +749,10 @@ void rxState(void)
       state.bindmode = true;
     }
     else
+    {
+      setPaketsizeReceive();
       state.bindmode = false;
+    }
     setFreeChan();                 // Kanal einstellen und Empfang ein
     counter = 0;
     rxstate = RxWaitStart;
@@ -832,10 +787,7 @@ void rxState(void)
         state.RxCount = 0;
       }
       else
-      {
-        setRxOn();
         rxstate = RxWait;
-      }
       counter = 0;
     }
     else
@@ -871,16 +823,14 @@ void rxState(void)
       state.RxCount = 0;
     }
     else
-    {
-      setRxOn();
       rxstate = RxWait;
-    }
     break;
   case RxWait:                      // Daten empfangen
     rxstate = Main;
     ++state.RxCount;
     break;
   case TxOn:                      // Daten reinschreiben Sender einschalten und senden
+    setPaketsizeSend();
     sendTelemetrie();
     rxstate = TxWait;
     break;
@@ -888,8 +838,9 @@ void rxState(void)
     rxstate = RxOn;
     break;
   case RxOn:                    // Senden fertig, Empfänger ein
+    setPaketsizeReceive();
     setNextChan();
-    setRxOn();
+//    setRxOn();
     rxstate = RxWait;
     break;
   }
@@ -914,7 +865,7 @@ int main(void)
 
 // Timer0 25 ms für LED und Failsafe
   TCCR0B = (2 << WGM00) | (5 << CS00);
-  OCR0A = (F_CPU * 10 / 1024 / 400);
+  OCR0A = (F_CPU * 10 / 1024 / 400 - 1);
   TIFR0 = 0xff;
   TIMSK0 = 0;
 
@@ -927,8 +878,10 @@ int main(void)
 
 // Timer2 1ms für Timeout
 //  TCCR2A = 0;
-  TCCR2B = (2 << WGM20) | (3 << CS20);      //  CTC mode, clk/32
-  OCR2A  = (F_CPU * 10 / 32 / 10000);       // ergibt 1ms (1000 Hz)
+  TCCR2A = (2 << WGM20);                        //  CTC mode
+  TCCR2B = (3 << CS20);                         // clk/32
+  OCR2A  = (F_CPU * 10 / 32 / 10000 - 1);       // ergibt 1ms (1000 Hz)
+  TCNT2 = 0;
   TIFR2  = 0xff;
   TIMSK2 = 1 << OCIE2A;
 
@@ -939,6 +892,8 @@ int main(void)
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
   cc2500_Init();
+  SPI_MasterWriteReg(CC2500_SYNC0,(unsigned char)eeprom.bind.id);
+  SPI_MasterWriteReg(CC2500_SYNC1,(unsigned char)(eeprom.bind.id >> 8));
   set_sleep_mode(SLEEP_MODE_IDLE);
   getFailSafe();
   wdt_enable(WDTO_30MS);

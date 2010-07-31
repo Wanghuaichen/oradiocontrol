@@ -15,7 +15,11 @@ COMMON = -mmcu=$(MCU)
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
 CFLAGS += -Wall -gdwarf-2 -Os -mcall-prologues -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
-CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+CFLAGS += -ffunction-sections -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+CFLAGS += -fno-inline-small-functions -fno-split-wide-types -fno-tree-scev-cprop -Wl,--relax
+
+
+
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
@@ -24,6 +28,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
+LDFLAGS +=  -Wl,--gc-sections
 LDFLAGS +=  -Wl,-Map=$*.map
 
 
@@ -36,7 +41,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = cc2500.o
+OBJECTS = cc2500.o ORC_com.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -48,9 +53,9 @@ SIZE=avr-size
 ## Build
 all: rx tx rxst txst ## $(PROJECT).eep $(PROJECT).lss	$(PROJECT).stats	## Compile
 
-tx: $(PROJECT)_tx.hex
+tx: $(PROJECT)_tx.hex $(PROJECT)_tx.elf
 	
-rx: $(PROJECT)_rx.hex
+rx: $(PROJECT)_rx.hex $(PROJECT)_rx.elf
 
 rxst: $(PROJECT)_rx.stats $(PROJECT)_rx.lss
 

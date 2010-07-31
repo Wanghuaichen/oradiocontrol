@@ -72,33 +72,33 @@ prog_uint8_t APM cc2500InitValue[] =
 
 void SPI_MasterWriteReg(uint8_t reg, int8_t c)
 {
-  SPI_MasterTransmit(reg);
-  SPI_MasterTransmit(c);
+  SPI_MasterTransmit_void(reg);
+  SPI_MasterTransmit_void(c);
 }
 
 int8_t SPI_MasterReadReg(uint8_t reg)
 {
-  SPI_MasterTransmit(reg);
+  SPI_MasterTransmit_void(reg);
   return(SPI_MasterTransmit(CC2500_SNOP));
 }
 
-
 uint8_t get_RxCount(void)                   // Anzahl Bytes im FIFO
 {
-  SPI_MasterTransmit(CC2500_RXBYTES | CC2500_READ_BURST);
-  return(SPI_MasterTransmit(0));
+  uint8_t temp = SPI_MasterReadReg(CC2500_RXBYTES | CC2500_READ_BURST);
+  cc2500_Off();                      // Burstzugriff rücksetzen
+  return(temp);
 }
 
 void cc2500FlushData(void)
 {
-  SPI_MasterTransmit(CC2500_SFRX);           // Flush the RX FIFO buffer
+  SPI_MasterTransmit_void(CC2500_SFRX);           // Flush the RX FIFO buffer
 }
 
 void cc2500_RxOn(void)
 {
 //  SPI_MasterWriteReg(CC2500_FSCTRL0, 0xf2);  // Korrektur schreiben
   cc2500FlushData();                          // Flush the RX FIFO buffer
-  SPI_MasterTransmit(CC2500_SRX);            // Enable RX
+  SPI_MasterTransmit_void(CC2500_SRX);            // Enable RX
   RES_BIT(EIFR, INTF0);
   SET_BIT(EIMSK, INT0);                       // INT0 ein
 }
@@ -109,6 +109,7 @@ void setFrequencyOffset(void)
   int16_t freq;
 
   freqoff = SPI_MasterReadReg(CC2500_FREQEST | CC2500_READ_BURST);
+  cc2500_Off();
   if(freqoff)
   {
     fsctrl = SPI_MasterReadReg(CC2500_FSCTRL0 | CC2500_READ_SINGLE);
@@ -123,38 +124,49 @@ void setFrequencyOffset(void)
 
 uint8_t get_Data(void)
 {
-  SPI_MasterTransmit(0xbf);
+  SPI_MasterTransmit_void(CC2500_READ_SINGLE | CC2500_RXFIFO);
   return(SPI_MasterTransmit(CC2500_SNOP));
 }
 
 void cc2500ReadBlock(int8_t *p, uint8_t n)
 {
-  SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
+  SPI_MasterTransmit_void(CC2500_READ_BURST | CC2500_RXFIFO);
   while(n--)
     *p++ = SPI_MasterTransmit(CC2500_SNOP);
-  cc2500BurstOff();         // Burstzugriff rücksetzen
+  cc2500_Off();                      // Burstzugriff rücksetzen
 }
 
 void cc2500WriteBlock(int8_t *p, uint8_t n)
 {
+  SPI_MasterTransmit_void(CC2500_WRITE_BURST | CC2500_TXFIFO);
   while(n--)
-    SPI_MasterTransmit(*p++);
+    SPI_MasterTransmit_void(*p++);
+  cc2500_Off();                      // Burstzugriff rücksetzen
 }
 
 void cc2500WriteSingle(int8_t *p, uint8_t n)
 {
   while(n--)
   {
-    SPI_MasterTransmit(CC2500_TXFIFO);
-    SPI_MasterTransmit(*p++);
+    SPI_MasterTransmit_void(CC2500_TXFIFO);
+    SPI_MasterTransmit_void(*p++);
+  }
+}
+
+void cc2500ReadSingle(int8_t *p, uint8_t n)
+{
+  while(n--)
+  {
+    SPI_MasterTransmit_void(CC2500_RXFIFO | CC2500_READ_SINGLE);
+    *p++ = SPI_MasterTransmit(CC2500_SNOP);
   }
 }
 
 void cc2500setPatableMax(void)
 {
-  SPI_MasterTransmit(CC2500_PATABLE | CC2500_WRITE_BURST);
+  SPI_MasterTransmit_void(CC2500_PATABLE | CC2500_WRITE_BURST);
   for(uint8_t i = 0; i < 8; ++i)
-    SPI_MasterTransmit(0xff);
-  cc2500BurstOff();
+    SPI_MasterTransmit_void(0xff);
+  cc2500_Off();
 }
 
