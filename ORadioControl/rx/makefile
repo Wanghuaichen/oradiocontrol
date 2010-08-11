@@ -3,17 +3,17 @@
 ###############################################################################
 
 ## General Flags
-PROJECT = ORC
-MCU = atmega48
+PROJECT = ORC_rx
+MCU = atmega88
 CC = 
 
-CPP = avr-g++
+CPP = avr-gcc
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
 
 ## Compile options common for all C compilation units.
-CFLAGS = $(COMMON)
+CFLAGS = $(COMMON) ##-save-temps
 CFLAGS += -Wall -gdwarf-2 -Os -mcall-prologues -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -ffunction-sections -MD -MP -MT $(*F).o -MF dep/$(@F).d 
 CFLAGS += -fno-inline-small-functions -fno-split-wide-types -fno-tree-scev-cprop -Wl,--relax
@@ -51,18 +51,19 @@ OBJCOPY=avr-objcopy
 SIZE=avr-size
 
 ## Build
-all: rx tx rxst txst ## $(PROJECT).eep $(PROJECT).lss	$(PROJECT).stats	## Compile
+new: clean all
 
-tx: $(PROJECT)_tx.hex $(PROJECT)_tx.elf
-	
-rx: $(PROJECT)_rx.hex $(PROJECT)_rx.elf
+all: rx rxst ## $(PROJECT).eep $(PROJECT).lss	$(PROJECT).stats	## Compile
 
-rxst: $(PROJECT)_rx.stats $(PROJECT)_rx.lss
+rx: $(PROJECT).hex $(PROJECT).elf
 
-txst: $(PROJECT)_tx.stats $(PROJECT)_tx.lss
+rxst: $(PROJECT).stats $(PROJECT).lss
 
 ##Compile
-%.o: src/%.cpp	
+$(PROJECT).o: src/$(PROJECT).c
+	$(CPP) $(INCLUDES) $(CFLAGS) -c  $<
+
+%.o: ../%.c	
 	$(CPP) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
