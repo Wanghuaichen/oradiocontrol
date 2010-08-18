@@ -55,6 +55,14 @@ typedef struct t_State
   uint8_t   scanCount;            // Anzahl kompletter Empfangsverluste
 }__attribute__((packed)) State;
 
+typedef struct fastppm
+{
+  uint8_t maskPortD;
+  uint8_t maskPortC;
+  uint16_t raw;
+  uint8_t nextdelay;
+}__attribute__((packed)) FASTPPM;
+
 typedef struct t_OutputData
 {
   uint8_t   chanFlag;
@@ -63,6 +71,7 @@ typedef struct t_OutputData
   uint8_t   timer[MAXCHAN];       // ms seit letzter Ausgabe
 //  uint16_t  pulses2MHz[18];
   uint8_t   act;                  // Ringpuffer aktuelle Ausgabe
+  FASTPPM   *p;
   uint8_t   nextFree;             // Ringpuffer PPM
 //  uint8_t   chanPtr:4;          // Kanalnummer aktuelle Ausgabe an die Servos
   uint8_t   chanMax;              // Anzahl der übertragenen Kanäle
@@ -106,14 +115,6 @@ typedef struct chan
   uint8_t delayIndex;
 }__attribute__((packed)) CHANSORT;
 
-typedef struct fastppm
-{
-  FuncP_PROGMEM func;
-  uint8_t chan;
-  uint16_t raw;
-  uint8_t nextdelay;
-}__attribute__((packed)) FASTPPM;
-
 enum receiver
 {
   Start,
@@ -126,6 +127,16 @@ enum receiver
   RxWait,                    // 1ms warten
   TxOn,                        // Daten schreiben und Sender aktivieren
   TxWait,                      // Telemetrie senden
+  TxWait2,                      // Telemetrie senden
   RxOn
 //  RxWaitBind                  // 1ms warten
 };
+
+#define L_SET_FAILSAVE 0
+#define L_BIND_ON 1
+#define L_xxxx 2
+#define L_SPI_ERROR 3
+#define L_xx 4
+#define L_xxx 5
+#define L_TX_NOT_READY 6
+#define L_INIT_ERROR 7

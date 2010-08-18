@@ -71,3 +71,20 @@ enum transmitter
   TxOnBind,
   TxWaitBind
 };
+
+enum uart
+{
+  WaitToken,
+  ReadChan,
+  ReadMSB,
+  ReadLSB
+};
+
+#define L_SET_FAILSAVE 0
+#define L_BIND_ON 1
+#define L_EEPROM_ERR 2
+#define L_SPI_ERROR 3
+#define L_xxx 4
+#define L_TX_NOT_RX 5
+#define L_TX_NOT_READY 6
+#define L_INIT_ERROR 7

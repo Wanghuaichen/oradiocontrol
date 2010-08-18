@@ -17,15 +17,15 @@
 void SPI_MasterInit(void)
 {
   /* Set MOSI and SCK and SS output, all others input */
-  CS_C2500_OFF
+  cc2500_Off();
 //  SPSR = 0;
   /* Enable SPI, Master, set clock rate fck/4 */
-  SPCR = (1<<SPE) | (1<<MSTR);
+  SPCR = (1<<SPE) | (1<<MSTR); // | (1<<SPR0);       //fck/16
 }
 
 void cc2500_Reset(void)
 {
-  SPI_MasterTransmit(CC2500_SRES);
+  cc2500CommandStrobe(CC2500_SRES);
   while(!(PINB & (1 << INP_B_SPI_MISO))) NOP();       // warten bis high
   while(PINB & (1 << INP_B_SPI_MISO)) NOP();          // warten bis low
 }
@@ -40,8 +40,6 @@ void cc2500_Init(uint8_t power)
   _delay_us(40);                    // warten 40us
   SPI_MasterInit();
   _delay_us(40);                    // warten 40us
-  CS_C2500_ACTIV
-//  while(PINB & (1 << INP_B_SPI_MISO));          // warten bis low
   cc2500_Reset();
   cc2500_Off();                         // SS wegnehmen
 
@@ -51,9 +49,34 @@ void cc2500_Init(uint8_t power)
   {
     SPI_MasterTransmit(pgm_read_byte(init++));
   }
-  while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 2));
   cc2500_Off();                    // SS wegnehmen wegen Burst
-  SPI_MasterWriteReg(CC2500_TEST2, 0x81);
-  SPI_MasterWriteReg(CC2500_TEST1, 0x35);
-  cc2500setPatableMax(power);
+  cc2500WriteReg(CC2500_TEST2,pgm_read_byte(init++));
+  cc2500WriteReg(CC2500_TEST1, pgm_read_byte(init));
+//  cc2500setPatableMax(power);
+}
+
+bool checkcc2500(void)
+{
+  prog_uint8_t *init = cc2500InitValue;
+//  uint8_t i;
+  bool f = true;
+
+  _delay_ms(100);
+  SPI_MasterTransmit(CC2500_IOCFG2 | CC2500_READ_BURST);
+  do
+  {
+    if(SPI_MasterTransmit(0) != pgm_read_byte(init++))
+      f = false;
+  }
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 2));
+  cc2500_Off();                    // SS wegnehmen wegen Burst
+
+//  for(i = 0;i < sizeof(cc2500InitValue);++i)
+//    if(SPI_MasterReadReg(i) != pgm_read_byte(&cc2500InitValue[i]))
+//      f = false;
+  if((cc2500ReadReg(CC2500_TEST2) != pgm_read_byte(init++))
+      || (cc2500ReadReg(CC2500_TEST1) != pgm_read_byte(init)))
+    f = false;
+  return f;
 }

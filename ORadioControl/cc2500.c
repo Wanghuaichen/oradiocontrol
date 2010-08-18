@@ -61,46 +61,51 @@ prog_uint8_t APM cc2500InitValue[] =
   0xf8,     //    WORCTRL    (Default) Wake On Radio control,
   0x56,     //    FREND1     (Default) Front end RX configuration,
   0x10,     //    FREND0     (Default) Front end TX configuration,
-  0xa9,     //    FSCAL3     (Default) Frequency synthesizer calibration,
+  0x89,     //    FSCAL3     Frequency synthesizer calibration, keine Chargepump cal
   0x0a,     //    FSCAL2     (Default) Frequency synthesizer calibration,
   0x0,      //  0 FSCAL1     Frequency synthesizer calibration,
   0x11,     // 11 FSCAL0     Frequency synthesizer calibration,
   0x41,     //    RCCTRL1    (Default) RC oscillator configuration,
   0x0,      //    RCCTRL0    (Default) RC oscillator configuration,
+  0x81,     //    TEST2
+  0x35      //    TEST1
 };
 
-
-void SPI_MasterWriteReg(uint8_t reg, int8_t c)
+void cc2500CommandStrobe(uint8_t str)
 {
-  SPI_MasterTransmit(reg);
-  SPI_MasterTransmit_void(c);
+  SPI_MasterTransmit(str);
 }
 
-int8_t SPI_MasterReadReg(uint8_t reg)
+uint8_t cc2500ReadStatus(uint8_t reg)
 {
-  SPI_MasterTransmit(reg);
+  SPI_MasterTransmit(reg | CC2500_READ_BURST);
+  return(SPI_MasterTransmit(CC2500_SNOP));
+}
+
+void cc2500WriteReg(uint8_t reg, uint8_t c)
+{
+  SPI_MasterTransmit(reg & ~CC2500_READ_SINGLE);
+  SPI_MasterTransmit(c);
+}
+
+uint8_t cc2500ReadReg(uint8_t reg)
+{
+  SPI_MasterTransmit(reg | CC2500_READ_SINGLE);
   return(SPI_MasterTransmit(CC2500_SNOP));
 }
 
 uint8_t get_RxCount(void)                   // Anzahl Bytes im FIFO
 {
-  uint8_t temp = SPI_MasterReadReg(CC2500_RXBYTES | CC2500_READ_BURST);
-  cc2500_Off();                      // Burstzugriff rücksetzen
+  // Bei kleinen Werten auch über lesenden NOP möglich
+//  uint8_t temp = SPI_MasterTransmit(CC2500_SNOP | CC2500_READ_SINGLE) & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM;
+  uint8_t temp = cc2500ReadStatus(CC2500_RXBYTES);
+//  cc2500_Off();                      // Burstzugriff rücksetzen
   return(temp);
 }
 
-void cc2500FlushData(void)
+void cc2500FlushReceiveData(void)
 {
-  SPI_MasterTransmit_void(CC2500_SFRX);           // Flush the RX FIFO buffer
-}
-
-void cc2500_RxOn(void)
-{
-//  SPI_MasterWriteReg(CC2500_FSCTRL0, 0xf2);  // Korrektur schreiben
-  cc2500FlushData();                          // Flush the RX FIFO buffer
-  SPI_MasterTransmit_void(CC2500_SRX);            // Enable RX
-  RES_BIT(EIFR, INTF0);
-  SET_BIT(EIMSK, INT0);                       // INT0 ein
+  cc2500CommandStrobe(CC2500_SFRX);           // Flush the RX FIFO buffer
 }
 
 void setFrequencyOffset(void)
@@ -108,17 +113,17 @@ void setFrequencyOffset(void)
   int8_t freqoff, fsctrl;
   int16_t freq;
 
-  freqoff = SPI_MasterReadReg(CC2500_FREQEST | CC2500_READ_BURST);
-  cc2500_Off();
+  freqoff = cc2500ReadStatus(CC2500_FREQEST);
+//  cc2500_Off();
   if(freqoff)
   {
-    fsctrl = SPI_MasterReadReg(CC2500_FSCTRL0 | CC2500_READ_SINGLE);
+    fsctrl = cc2500ReadReg(CC2500_FSCTRL0);
     freq = freqoff + fsctrl;
     if(freq > 0x7f)
       freq = 0x7f;
     else if(freq < -0x80)
       freq = -0x80;
-    SPI_MasterWriteReg(CC2500_FSCTRL0, (int8_t)freq);
+    cc2500WriteReg(CC2500_FSCTRL0, (int8_t)freq);
   }
 }
 
@@ -128,15 +133,15 @@ uint8_t get_Data(void)
   return(SPI_MasterTransmit(CC2500_SNOP));
 }
 
-void cc2500ReadBlock(int8_t *p, uint8_t n)
+void cc2500ReadFIFOBlock(uint8_t *p, uint8_t n)
 {
-  SPI_MasterTransmit(CC2500_READ_BURST | CC2500_RXFIFO);
+  cc2500ReadStatus(CC2500_RXFIFO);              // sieht unglücklich aus
   while(n--)
     *p++ = SPI_MasterTransmit(CC2500_SNOP);
   cc2500_Off();                      // Burstzugriff rücksetzen
 }
 
-void cc2500WriteBlock(int8_t *p, uint8_t n)
+void cc2500WriteFIFOBlock(uint8_t *p, uint8_t n)
 {
   SPI_MasterTransmit(CC2500_WRITE_BURST | CC2500_TXFIFO);
   while(n--)
@@ -144,35 +149,48 @@ void cc2500WriteBlock(int8_t *p, uint8_t n)
   cc2500_Off();                      // Burstzugriff rücksetzen
 }
 
-void cc2500WriteSingle(int8_t *p, uint8_t n)
+void cc2500WriteSingle(uint8_t *p, uint8_t n)
 {
   while(n--)
   {
     SPI_MasterTransmit(CC2500_TXFIFO);
-    SPI_MasterTransmit_void(*p++);
+    SPI_MasterTransmit(*p++);
   }
 }
 
-void cc2500ReadSingle(int8_t *p, uint8_t n)
+void cc2500ReadSingle(uint8_t *p, uint8_t n)
 {
   while(n--)
-  {
-    SPI_MasterTransmit(CC2500_RXFIFO | CC2500_READ_SINGLE);
-    *p++ = SPI_MasterTransmit(CC2500_SNOP);
-  }
+    *p++ =cc2500ReadReg(CC2500_RXFIFO);
 }
 
 void cc2500setPatableMax(uint8_t power)
 {
   uint8_t i;
   SPI_MasterTransmit(CC2500_PATABLE | CC2500_WRITE_BURST);
-  for(i = 0; i < 8; ++i)
+  for(i = 0; i < 8; ++i)                 //// 8!!
     SPI_MasterTransmit(power);
   cc2500_Off();
 }
 
 void cc2500Idle(void)
 {
-  if(SPI_MasterTransmit(CC2500_SIDLE) != 0x0f)
-    while(SPI_MasterTransmit(CC2500_SNOP) != 0x0f);           // Status lesen
+  if((SPI_MasterTransmit(CC2500_SIDLE) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
+    while((SPI_MasterTransmit(CC2500_SNOP) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE);   // Status lesen
 }
+
+void cc2500StartCal(void)
+{
+  cc2500CommandStrobe(CC2500_SCAL);
+}
+
+void calibrateOff(void)
+{
+  cc2500WriteReg(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]));
+}
+
+void calibrateOn(void)
+{
+  cc2500WriteReg(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]) | 0x20);
+}
+

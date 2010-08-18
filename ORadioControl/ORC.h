@@ -67,32 +67,32 @@ typedef PROGMEM APM void (*FuncP_PROGMEM)(void);
 
 extern void SPI_MasterInit(void);
 extern uint8_t SPI_MasterTransmit(uint8_t);
-extern void SPI_MasterTransmit_void(uint8_t);
-extern void SPI_MasterWriteReg(uint8_t, int8_t);
-extern int8_t SPI_MasterReadReg(uint8_t);
+extern void cc2500CommandStrobe(uint8_t);
+extern uint8_t cc2500ReadStatus(uint8_t);
+extern void cc2500WriteReg(uint8_t, uint8_t);
+extern uint8_t cc2500ReadReg(uint8_t);
 extern void cc2500_Init(uint8_t);
 extern uint8_t get_RxCount(void);
-extern void cc2500FlushData(void);
-extern void cc2500_RxOn(void);
-extern void cc2500ReadBlock(int8_t *, uint8_t);
-extern void cc2500ReadSingle(int8_t *, uint8_t);
-extern void cc2500WriteBlock(int8_t *, uint8_t);
-extern void cc2500WriteSingle(int8_t *, uint8_t);
+extern void cc2500FlushReceiveData(void);
+extern void cc2500ReadFIFOBlock(uint8_t *, uint8_t);
+extern void cc2500ReadSingle(uint8_t *, uint8_t);
+extern void cc2500WriteFIFOBlock(uint8_t *, uint8_t);
+extern void cc2500WriteSingle(uint8_t *, uint8_t);
 extern void setFrequencyOffset(void);
 extern uint8_t get_Data(void);
 extern void cc2500setPatableMax(uint8_t);
 extern void cc2500_Off(void);
 extern void cc2500Idle(void);
+extern bool checkcc2500(void);
+extern void cc2500StartCal(void);
+extern void calibrateOff(void);
+extern void calibrateOn(void);
 
-extern prog_uint8_t cc2500InitValue[41];
+extern prog_uint8_t cc2500InitValue[43];
 
 #define NOP() { __asm__ __volatile__ ("nop"); }
 #define SET_BIT(port,bit)  (port |=  (1<<bit))
 #define RES_BIT(port,bit)  (port &= (uint8_t)~(1<<bit))
-#define WAIT_SPI_READY {while(!(SPSR & (1<<SPIF)));}
-#define WAIT_C2500_READY {while(PIND & (1<<INP_D_CC2500_GDO2)) NOP();}
-#define CS_C2500_ACTIV { RES_BIT(PORTB, OUT_B_SPI_SS); NOP(); while(PINB & (1<<OUT_B_SPI_SS)) NOP(); while(PINB & (1 << INP_B_SPI_MISO))NOP();}
-#define CS_C2500_OFF { SET_BIT(PORTB, OUT_B_SPI_SS); NOP(); while(!(PINB & (1<<OUT_B_SPI_SS))) NOP();}
 
 #define OUT_B_SPI_SS PORTB2
 #define OUT_B_SPI_MOSI PORTB3
@@ -107,6 +107,7 @@ extern prog_uint8_t cc2500InitValue[41];
 #define K_MODEFAILSAFE
 #define MAXHOPPCHAN 195               // muss ungerade sein
 #define MAXCHAN 8
+#define CYCLETIME (F_CPU * 10 / 32 / 10000 - 1)
 
 typedef struct t_MessageChan
 {
