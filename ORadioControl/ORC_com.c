@@ -51,9 +51,9 @@ void cc2500_Init(uint8_t power)
   }
   while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 2));
   cc2500_Off();                    // SS wegnehmen wegen Burst
-  cc2500WriteReg(CC2500_TEST2,pgm_read_byte(init++));
+  cc2500WriteReg(CC2500_TEST2, pgm_read_byte(init++));
   cc2500WriteReg(CC2500_TEST1, pgm_read_byte(init));
-//  cc2500setPatableMax(power);
+  cc2500setPatableMax(power);
 }
 
 bool checkcc2500(void)

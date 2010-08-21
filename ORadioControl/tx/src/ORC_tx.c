@@ -248,16 +248,18 @@ void setBindMode(void)
 {
   cc2500WriteReg(CC2500_SYNC0, (unsigned char)BINDMODEID);
   cc2500WriteReg(CC2500_SYNC1, (unsigned char)(BINDMODEID >> 8));
-  cc2500WriteReg(CC2500_PKTLEN, sizeof(eeprom) - sizeof(eeprom.checksum));
+  cc2500WriteReg(CC2500_PKTLEN, sizeof(eeprom.bind));
+  eeprom.bind.step = BINDMODESTEP;
+  cc2500setPatableMax(0);             // Sendeleistung runter
 }
 
 void setNextChan(void)                // Kanal schreiben
 {
-  uint16_t tempChan = state.actChan + eeprom.step * 2 + 1;
+  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
   if(tempChan > MAXHOPPCHAN)
     tempChan -= (MAXHOPPCHAN + 1);
   state.actChan = tempChan;
-  cc2500WriteReg(CC2500_CHANNR, tempChan);
+  cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
 }
 
 void setNextChanRx(void)                      // Kanal schreiben und nach RX
@@ -266,7 +268,6 @@ void setNextChanRx(void)                      // Kanal schreiben und nach RX
   SET_BIT(PORTD, OUT_D_CRX);
   if(PIND & (1<<INP_D_CC2500_GDO0))
     SET_BIT(state.ledError, L_TX_NOT_READY);
-  cc2500Idle();
   setNextChan();
 //  cc2500WriteReg(CC2500_PKTLEN, sizeof(MessageData));
   cc2500CommandStrobe(CC2500_SFTX);       // Flush TX
@@ -284,12 +285,12 @@ void setNextChanRx(void)                      // Kanal schreiben und nach RX
 
 void setPaketsizeSend(void)
 {
-  cc2500WriteReg(CC2500_PKTLEN, sizeof(MessageData));
+  cc2500WriteRegCheckIdle(CC2500_PKTLEN, sizeof(MessageData));
 }
 
 void setPaketsizeReceive(void)
 {
-  cc2500WriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
+  cc2500WriteRegCheckIdle(CC2500_PKTLEN, sizeof(Telemetrie));
 }
 
 bool checkKey(void)
@@ -303,7 +304,7 @@ void set_led(void)
   static uint8_t led_count;
 
   int8_t diff = ((uint8_t)Timer33ms) - timer_alt;
-  if(diff > 4)
+  if(diff > 7)
   {
     timer_alt = (uint8_t)Timer33ms;;
 
@@ -336,8 +337,8 @@ void set_led(void)
 
 bool checkId(void)
 {
-  return (eeprom.id && (eeprom.id != 0xffff) &&
-         (eeprom.step > 4) && (eeprom.step < MAXHOPPCHAN / 2 - 4));
+  return (eeprom.bind.id && (eeprom.bind.id != 0xffff) &&
+         (eeprom.bind.step > 4) && (eeprom.bind.step < MAXHOPPCHAN / 2 - 4));
 }
 
 uint16_t calcCheckSum(uint8_t *p, uint16_t size)
@@ -353,9 +354,9 @@ void calcNewId(void)
 {
   do
   {
-    eeprom.id += TCNT0 + TCNT1 + TCNT2;
-    eeprom.step += eeprom.id;
-    eeprom.step &= 0x3f;
+    eeprom.bind.id += TCNT0 + TCNT1 + TCNT2;
+    eeprom.bind.step += eeprom.bind.id;
+    eeprom.bind.step &= 0x3f;
 //    if(eeprom.step > 204)
 //      eeprom.step -= (204 + 1);
   }
@@ -435,10 +436,12 @@ void TxSendChan(void)
 
 void TxReceive()
 {
-  if(get_RxCount() == sizeof(TelemetrieMes))
+  uint8_t x;
+  if((x = get_RxCount()) == sizeof(TelemetrieMes))
     cc2500ReadFIFOBlock((uint8_t *)&TelemetrieMes, sizeof(TelemetrieMes));
   else
-    cc2500FlushReceiveData();
+    while(x-- > 0)
+      cc2500ReadReg(CC2500_RXFIFO);         // Flush geht nicht weil rx
 }
 
 uint8_t b2hex(uint8_t bin)
@@ -530,7 +533,7 @@ void cc2500_TxNormOn(void)
 void cc2500_TxBindOn(void)
 {
   cc2500_TxOn();
-  cc2500WriteFIFOBlock((uint8_t *)&eeprom, sizeof(eeprom)-sizeof(eeprom.checksum));
+  cc2500WriteFIFOBlock((uint8_t *)&eeprom.bind, sizeof(eeprom.bind));
 }
 
 void txState(void)
@@ -563,8 +566,8 @@ void txState(void)
       txstate = TxReady;
     break;
   case RxOn:                      // Empfänger einstellen, Kalibrieren
-    setPaketsizeReceive();
     calibrateOn();
+    setPaketsizeReceive();
     setNextChanRx();
     txstate = RxWait2;
     break;
@@ -575,8 +578,9 @@ void txState(void)
     txstate = RxCalc;
     break;
   case RxCalc:
-    setPaketsizeSend();
+//    cc2500Idle();
     calibrateOff();
+    setPaketsizeSend();
     setNextChanRx();
     TxReceive();                  // Empfangsdaten auswerten
     txstate = TxOn;
@@ -654,6 +658,7 @@ int __attribute__((naked)) main(void)
   TIMSK2 = (1 << OCIE2A);
 
   EICRA = (1 << ISC01);                       // int0 bei fallender Flanke
+  EIMSK = 0;                               // Achtung cc2500 gibt hier Takt aus per default
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
   if(!checkId() || (eeprom.checksum !=
@@ -662,8 +667,8 @@ int __attribute__((naked)) main(void)
   cc2500_Init(eeprom.power);
   if(!checkcc2500())
     SET_BIT(state.ledError, L_INIT_ERROR);
-  cc2500WriteReg(CC2500_SYNC0,(unsigned char)eeprom.id);
-  cc2500WriteReg(CC2500_SYNC1,(unsigned char)(eeprom.id >> 8));
+  cc2500WriteReg(CC2500_SYNC0,(unsigned char)eeprom.bind.id);
+  cc2500WriteReg(CC2500_SYNC1,(unsigned char)(eeprom.bind.id >> 8));
   set_sleep_mode(SLEEP_MODE_IDLE);
   USART_Init(MYUBRR);
 //  wdt_enable(WDTO_30MS);

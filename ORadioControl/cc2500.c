@@ -24,6 +24,8 @@ prog_uint8_t APM cc2500InitValue[] =
             //               the pin will de-assert when the optional address,
             //               check fails or the RX FIFO overflows.,
             //               In TX the pin will de-assert if the TX FIFO underflows.,
+  // Für Sender wenn Sender fertig
+  // Für Empfänger wenn komplettes gutes Paket da.
   0x7,      //    FIFOTHR7   (Default) Tx:33 Rx:32,
   0xd3,     //    SYNC1      (Default) Sync word, high byte
   0x91,     //    SYNC0      (Default) Sync word, low byte
@@ -76,16 +78,27 @@ void cc2500CommandStrobe(uint8_t str)
   SPI_MasterTransmit(str);
 }
 
-uint8_t cc2500ReadStatus(uint8_t reg)
+uint8_t cc2500GetState(void)
+{
+  return(SPI_MasterTransmit(CC2500_SNOP) & CC2500_STATUS_STATE_BM);
+}
+
+uint8_t cc2500ReadStatusReg(uint8_t reg)
 {
   SPI_MasterTransmit(reg | CC2500_READ_BURST);
   return(SPI_MasterTransmit(CC2500_SNOP));
 }
 
-void cc2500WriteReg(uint8_t reg, uint8_t c)
+uint8_t cc2500WriteReg(uint8_t reg, uint8_t c)
 {
   SPI_MasterTransmit(reg & ~CC2500_READ_SINGLE);
-  SPI_MasterTransmit(c);
+  return(SPI_MasterTransmit(c));
+}
+
+void cc2500WriteRegCheckIdle(uint8_t reg, uint8_t c)
+{
+  if((cc2500WriteReg(reg, c) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
+      cc2500Idle();;
 }
 
 uint8_t cc2500ReadReg(uint8_t reg)
@@ -98,7 +111,7 @@ uint8_t get_RxCount(void)                   // Anzahl Bytes im FIFO
 {
   // Bei kleinen Werten auch über lesenden NOP möglich
 //  uint8_t temp = SPI_MasterTransmit(CC2500_SNOP | CC2500_READ_SINGLE) & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM;
-  uint8_t temp = cc2500ReadStatus(CC2500_RXBYTES);
+  uint8_t temp = cc2500ReadStatusReg(CC2500_RXBYTES);
 //  cc2500_Off();                      // Burstzugriff rücksetzen
   return(temp);
 }
@@ -113,7 +126,7 @@ void setFrequencyOffset(void)
   int8_t freqoff, fsctrl;
   int16_t freq;
 
-  freqoff = cc2500ReadStatus(CC2500_FREQEST);
+  freqoff = cc2500ReadStatusReg(CC2500_FREQEST);
 //  cc2500_Off();
   if(freqoff)
   {
@@ -135,7 +148,7 @@ uint8_t get_Data(void)
 
 void cc2500ReadFIFOBlock(uint8_t *p, uint8_t n)
 {
-  cc2500ReadStatus(CC2500_RXFIFO);              // sieht unglücklich aus
+  SPI_MasterTransmit(CC2500_RXFIFO | CC2500_READ_BURST);
   while(n--)
     *p++ = SPI_MasterTransmit(CC2500_SNOP);
   cc2500_Off();                      // Burstzugriff rücksetzen
@@ -186,11 +199,11 @@ void cc2500StartCal(void)
 
 void calibrateOff(void)
 {
-  cc2500WriteReg(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]));
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]));
 }
 
 void calibrateOn(void)
 {
-  cc2500WriteReg(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]) | 0x20);
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]) | 0x20);
 }
 

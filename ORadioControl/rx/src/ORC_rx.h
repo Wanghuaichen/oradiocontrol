@@ -13,12 +13,6 @@
 
 #include "../../ORC.h"
 
-typedef struct t_BindData
-{
-  uint16_t      id;     //sync
-  uint8_t       step;
-}__attribute__((packed)) BindData;
-
 typedef struct t_FailSafeData
 {
   uint8_t   failSafeMode:5;        // 1 failSafePos nach Zeit, 0 = off (für Regler)

@@ -16,8 +16,7 @@
 typedef struct t_EEData
 {
 //  uint8_t       flyMode:1;
-  uint16_t      id;     //sync
-  uint8_t       step;
+  BindData      bind;
   uint8_t       power;
   uint16_t      checksum;
 }__attribute__((packed)) EEData;

@@ -68,8 +68,10 @@ typedef PROGMEM APM void (*FuncP_PROGMEM)(void);
 extern void SPI_MasterInit(void);
 extern uint8_t SPI_MasterTransmit(uint8_t);
 extern void cc2500CommandStrobe(uint8_t);
-extern uint8_t cc2500ReadStatus(uint8_t);
-extern void cc2500WriteReg(uint8_t, uint8_t);
+extern uint8_t cc2500ReadStatusReg(uint8_t);
+extern uint8_t cc2500GetState(void);
+extern uint8_t cc2500WriteReg(uint8_t, uint8_t);
+extern void cc2500WriteRegCheckIdle(uint8_t, uint8_t);
 extern uint8_t cc2500ReadReg(uint8_t);
 extern void cc2500_Init(uint8_t);
 extern uint8_t get_RxCount(void);
@@ -102,12 +104,20 @@ extern prog_uint8_t cc2500InitValue[43];
 #define INP_D_CC2500_GDO2 PIND3
 
 #define BINDMODEID 0x1009
+#define BINDMODESTEP 64
 #define K_DUMMY 0x0000
 #define K_SETFAILESAFEPOS 0x0001
 #define K_MODEFAILSAFE
 #define MAXHOPPCHAN 195               // muss ungerade sein
 #define MAXCHAN 8
 #define CYCLETIME (F_CPU * 10 / 32 / 10000 - 1)
+
+typedef struct t_BindData
+{
+  uint16_t      id;     //sync
+  uint8_t       step;
+}__attribute__((packed)) BindData;
+
 
 typedef struct t_MessageChan
 {

@@ -103,7 +103,7 @@ State state;
 OutputData output;
 //volatile uint16_t Timer1ms;
 volatile uint16_t Timer25ms;
-bool RxInterrupt;
+bool RxInterrupt, TimerInterrupt;
 //uint8_t heartbeat;
 PPM pulses[16];
 Telemetrie telemetrieBuf[8];
@@ -307,7 +307,7 @@ void get_mcusr(void)
 ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)
 {
 //  ++Timer1ms;
-  RxInterrupt = true;
+  TimerInterrupt = true;
 }
 
 ISR(INT0_vect, ISR_NOBLOCK)
@@ -683,20 +683,19 @@ void cc2500_Off(void)
   while(!(PINB & (1<<OUT_B_SPI_SS)));
 }
 
-void setNextChan(void)                // Kanal schreiben
+void setNextChanCheckIdle(void)                // Kanal schreiben
 {
+  if(PIND & (1<<INP_D_CC2500_GDO0))
+    SET_BIT(state.ledError, L_TX_NOT_READY);
   uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
   while(tempChan > MAXHOPPCHAN)
     tempChan -= (MAXHOPPCHAN + 1);
   state.actChan = tempChan;
-  cc2500WriteReg(CC2500_CHANNR, tempChan);
+  cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
 }
 
-void setNextChanRx(void)                // Kanal schreiben
+void setRx(void)                // Kanal schreiben
 {
-  if(PIND & (1<<INP_D_CC2500_GDO0))
-    SET_BIT(state.ledError, L_TX_NOT_READY);
-  setNextChan();
   SET_BIT(PORTB, OUT_B_PRE);
   cc2500CommandStrobe(CC2500_SRX);       // Kalibrieren
   SET_BIT(EIFR, INTF0);
@@ -732,14 +731,14 @@ void setAnt(bool ant)
 bool checkchanFree(void)            // False: Kanal frei
 {
 //  if(SPI_MasterReadReg(CC2500_PKTSTATUS | CC2500_READ_BURST) & 0x10)
-  int8_t rssi = cc2500ReadStatus(CC2500_RSSI);
+  int8_t rssi = cc2500ReadStatusReg(CC2500_RSSI);
 //  cc2500_Off();
-  return(rssi > 0);
+  return(rssi < 0);         // Offset mit ca. 70 entspricht also -70dbm
 }
 
 void setFreeChanRx(void)            // Nächsten Kanal einstellen um zu sehen, ob er belegt ist
 {
-  uint16_t tempChan = state.actChan + 1;
+  uint16_t tempChan = state.actChan + 3;
   if(tempChan > MAXHOPPCHAN)
     tempChan -= (MAXHOPPCHAN + 1);
   cc2500Idle();
@@ -766,47 +765,27 @@ void setReceiveError(void)
     ++state.errorCount;
   if(state.errorSum < 0xffff)
     ++state.errorSum;                 // max über 3h Totalausfall
-//  cc2500FlushReceiveData();           // geht nicht Empfänger läuft schon wieder!?
-  uint8_t i;
-  uint8_t a = get_RxCount();
-  for(i = 0;i < a;++i)
-    cc2500ReadReg(CC2500_RXFIFO);
 }
 
 void clearCount(void)
 {
   TCNT2 = 0;                          // Timer kommt eher später
+  TimerInterrupt = false;
 }
 
 void readBindData(void)
 {
   MessageBind mes;
-  static uint8_t counter;
 
   cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes));
-  setFrequencyOffset();                 // macht nicht viel Sinn, hat ja funktioniert
   if(mes.crcOk)
   {
     clearCount();
-    if(counter)
-    {
-      if((eeprom.bind.id == mes.data.id) && (eeprom.bind.step == mes.data.step))
-        ++counter;
-      else
-        counter = 0;
-      if(counter > 100)
-      {
-        eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
-        state.bindmode = false;
-        while(1);                   //       reset
-      }
-    }
-    else
-    {
-      eeprom.bind.id = mes.data.id;
-      eeprom.bind.step = mes.data.step;
-      ++counter;
-    }
+    eeprom.bind.id = mes.data.id;
+    eeprom.bind.step = mes.data.step;
+    eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
+    state.bindmode = false;
+    while(1);                   //       reset
   }
   else
     setReceiveError();
@@ -892,6 +871,8 @@ void readData(void)
     {
       if(mes.data.command.rts)
         state.RxCount = 8;
+      else if(state.RxCount >= 8)
+        state.RxCount = 0;
       if(mes.data.command.command == 1)     // FailSafe Position setzen
         setFailSafe();
       else
@@ -899,7 +880,6 @@ void readData(void)
     // Achtung auch bei Ausfall des letzten Telegramms PPM erzeugen
         // Achtung je nach Kanal Latenz ausgleichen!!!
     }
-    setFrequencyOffset();
     if((mes.rssi > 50) || (mes.lqi < 5))   // Empfang schlecht
       setAnt(state.actAnt);               // Antenne wechseln
     if(state.okSum < 0xffff)
@@ -924,7 +904,7 @@ void sendTelemetrie(void)  // Da Timer hinterherhinkt wird etwas später gesende
   Telemetrie mes;
   static uint8_t count;
 
-  setNextChan();
+  setNextChanCheckIdle();
   if(!eeprom.txEnable)
     return;
   cc2500CommandStrobe(CC2500_SFTX);      // ??
@@ -946,27 +926,28 @@ void sendTelemetrie(void)  // Da Timer hinterherhinkt wird etwas später gesende
   cc2500CommandStrobe(CC2500_STX);            // Enable TX
 }
 
-void processData(void)                // Nachsehen ob was da
+void processData(uint8_t data_len)                // Nachsehen ob was da
 {
-  uint8_t data_lengh;
-
-  if((data_lengh = get_RxCount()))
+  if(state.bindmode)
   {
-//    TIFR2 &= ~(1 << OCF2A);
-    if(state.bindmode)
-    {
-      if(data_lengh == sizeof(MessageBind))
-        readBindData();
-      else
-        setReceiveError();
-    }
-    else if(data_lengh == sizeof(Message))
-      readData();
+    if(data_len == sizeof(MessageBind))
+      readBindData();
     else
+    {
       setReceiveError();
+      //  cc2500FlushReceiveData();           // geht nicht Empfänger läuft schon wieder!?
+      while(data_len-- > 0)
+        cc2500ReadReg(CC2500_RXFIFO);
+    }
   }
+  else if(data_len == sizeof(Message))
+    readData();
   else
+  {
     setReceiveError();
+    while(data_len-- > 0)
+      cc2500ReadReg(CC2500_RXFIFO);
+  }
 }
 
 bool checkId(void)
@@ -988,11 +969,11 @@ void set_led(void)
 
   timerTemp = Timer25ms;
   int16_t diff = timerTemp - timer_alt;
-  if(diff > 5)
+  if(diff > 9)
   {
     timer_alt = timerTemp;
 
-    if(!(led_count & 0xf))            // unteres Nibble 0
+    if(!(led_count & 0xf))            // unteres Nibble 0 (Blinkzähler)
     {
       uint8_t ledtemp;
       if((ledtemp = state.ledError))
@@ -1010,7 +991,12 @@ void set_led(void)
         }
       }
       else
-        LED_ON;
+      {
+        if(!state.errorCount)
+          LED_ON;
+        else
+          LED_OFF;
+      }
     }
     else
     {
@@ -1030,10 +1016,13 @@ void setBindMode(void)
   cc2500WriteReg(CC2500_SYNC0, (unsigned char)BINDMODEID);
   cc2500WriteReg(CC2500_SYNC1, (unsigned char)(BINDMODEID >> 8));
   cc2500WriteReg(CC2500_PKTLEN, sizeof(BindData));
+  cc2500WriteReg(CC2500_AGCCTRL2, 0xfb);              // Empfindlichkeit reduzieren
+
   SET_BIT(state.ledError, L_BIND_ON);
+  eeprom.bind.step = BINDMODESTEP;
 }
 
-void rxState(void)
+void rxState(uint8_t data_len)
 {
   static enum receiver rxstate;
   static uint16_t counter;
@@ -1064,7 +1053,7 @@ void rxState(void)
     break;
   case checkRSSI:                   // Kanal frei?
     if((counter > 100) || checkchanFree() ||
-        (PIND & (1 << INP_D_CC2500_GDO0)) || get_RxCount())
+        (PIND & (1 << INP_D_CC2500_GDO0)) || (cc2500GetState() != CC2500_STATE_RX))
     {
       counter = 0;
       rxstate = waitForData;
@@ -1080,24 +1069,38 @@ void rxState(void)
   case waitForData:                 // Eine Sekunde auf Empfang warten
     if(PIND & (1 << INP_D_CC2500_GDO0))        // Einsprung über Timerinterrupt und Empfang läuft gerade
       return;
-    if(get_RxCount())                           // irgendwelche Daten da
+    if(data_len || (cc2500GetState() != CC2500_STATE_RX))
     {
-      calibrateOff();
-      setNextChanRx();                  // Beim Binden wird hier Müll eingestellt
-      processData();                  // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
-      if(state.RxCount < 8)
-      {
-        rxstate = RxWait;             // Beim ersten Mal nicht senden!!
-        state.RxCount = 0;
+      if(data_len || (data_len = get_RxCount()))
+      {                           // irgendwelche Daten da (Prüfsumme und Länge war ok!)
+        setNextChanCheckIdle();
+        calibrateOff();
+        setFrequencyOffset();
+        setRx();
+        processData(data_len);            // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
+        if(state.RxCount < 8)
+        {
+          rxstate = RxWait;             // Beim ersten Mal nicht senden!!
+          state.RxCount = 0;
+        }
+        else
+        {
+          setNextChanCheckIdle();                  // Kanal überspringen
+          setRx();                        // Auf Empfang
+        }
+        counter = 0;
       }
-      counter = 0;
+      else
+      {
+        cc2500CommandStrobe(CC2500_SFRX);   // nicht ganz korrekt, weil counter nicht ausgewertet
+        cc2500CommandStrobe(CC2500_SRX);
+      }
     }
     else
     {
-      if(counter % 128 == 127)
-        setNewRxFrequ();                // Frequenz verstellen
-      if(counter > 1000)                  // 1 Sekunde warten
+      if(counter > MAXHOPPCHAN * 2)     // ca. 0.5 Sekunde warten
       {                                 // Neu initialisieren ??
+        setNewRxFrequ();                // Frequenz verstellen
         setFreeChanRx();                 // Kanal einstellen und Empfang ein
         counter = 0;
         rxstate = RxWaitStart;
@@ -1120,18 +1123,20 @@ void rxState(void)
         ++state.scanCount;
     }
     else
-    {
+    {         // Frequenz nur bei gutem Paket oder Timer wechseln
+      setNextChanCheckIdle();                      // wechselt auf Idle
+      if(data_len || (data_len = get_RxCount()))      // irgendwelche Daten da (Prüfsumme und Länge war ok!)
+        setFrequencyOffset();
       if(state.RxCount < 8)
       {
-        setNextChanRx();
+        setRx();
         rxstate = RxWait;
       }
-      processData();                // state.RxCount wird hier geändert
+      processData(data_len);                // state.RxCount wird hier geändert
       if(state.RxCount >= 8)
       {
-        setPaketsizeSend();
-        calibrateOn();
-        setNextChan();
+        calibrateOn();                  // Zeit reicht weil hier auf jeden Fall auf idle gewechselt wird
+        setPaketsizeSend();             // wenn von 8 auf 0 gewechselt wird, wird nicht empfangen!!
         rxstate = TxOn;
         state.RxCount = 0;
         OCR2A  = CYCLETIME / 2;               // ergibt 0,5 ms
@@ -1158,9 +1163,10 @@ void rxState(void)
     setOutputTimer();
     break;
   case RxOn:                    // Senden fertig, Empfänger ein
+    setNextChanCheckIdle();
     setPaketsizeReceive();
     calibrateOff();
-    setNextChanRx();
+    setRx();
     rxstate = RxWait;
     setOutputTimer();
     break;
@@ -1241,10 +1247,19 @@ int __attribute__((naked)) main(void)
     sei();
     sleep_mode();                   //    warten bis was empfangen (Interrupt)
     //nur bei Timer 1ms Interrupt oder Int0, nicht bei PPM- Interrupt
-    if(RxInterrupt)
+    if(TimerInterrupt)
     {
-      rxState();
+      TimerInterrupt = false;
+      rxState(0);
+    }
+    if(RxInterrupt)                     // checken ob Daten da sind sonst wieder auf Empfang
+    {
       RxInterrupt = false;
+      uint8_t data_len;
+      if((data_len = get_RxCount()))
+        rxState(data_len);
+      else
+        setRx();
     }
     if(TIFR0 & (1 << OCF0A))
     {
