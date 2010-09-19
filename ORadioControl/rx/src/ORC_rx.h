@@ -32,7 +32,8 @@ typedef struct t_State
 {
   bool      bindmode:1;
   bool      ngmode:1;             // new generation mode
-//  bool      scan:1;
+  bool      led:1;
+//  bool      synch:1;
 //  bool      lowLqiMode:1;
 //  bool      lastRxOkChanIdx:2;
 //  uint8_t   RxTimeOut33;
@@ -41,6 +42,7 @@ typedef struct t_State
   uint8_t   actChan;              // Eingestellter Kanal
   uint8_t   actAnt:1;             // Eingestellte Antenne
   uint8_t   actFreqIdx:3;
+  int8_t    freqOffset;
   uint8_t   dummy:4;
   uint8_t   ledError;             // Bitkodierte Fehler für LED
   uint8_t   errorCount;           // Fehlerzähler für Empfänger
@@ -60,7 +62,7 @@ typedef struct fastppm
 typedef struct t_OutputData
 {
   uint8_t   chanFlag;
-  uint16_t  chan_1us[MAXCHAN];    // Werte aller 8 Kanäle
+  int16_t   chan_1us[MAXCHAN];    // Werte aller 8 Kanäle
   uint8_t   timeOut[MAXCHAN];     // Timer für FailSafe
   uint8_t   timer[MAXCHAN];       // ms seit letzter Ausgabe
 //  uint16_t  pulses2MHz[18];
@@ -78,16 +80,16 @@ typedef struct t_MessageBind
 {
   BindData data;
   uint8_t  rssi;
-  uint8_t  crcOk:1;
   uint8_t  lqi:7;
+  uint8_t  crcOk:1;
 }__attribute__((packed)) MessageBind;
 
 typedef struct t_Message
 {
   MessageData data;
   uint8_t     rssi;
-  uint8_t     crcOk:1;
   uint8_t     lqi:7;
+  uint8_t     crcOk:1;
 }__attribute__((packed)) Message;
 
 typedef struct t_ChannelData
@@ -112,16 +114,17 @@ typedef struct chan
 enum receiver
 {
   Start,
-  RxWaitStart,
+//  RxWaitStart,
   checkRSSI,
 //  waitForBind,
 //  searchFreeChan,             // Freien Kanal suchen
   waitForData,                // Warten bis Daten empfangen
+//  RxFill,
   Main,                       // Empfänger einstellen, Kalibrieren
-  RxWait,                    // 1ms warten
+//  RxWait,                    // 1ms warten
   TxOn,                        // Daten schreiben und Sender aktivieren
-  TxWait,                      // Telemetrie senden
-  TxWait2,                      // Telemetrie senden
+//  TxWait,                      // Telemetrie senden
+//  TxWait2,                      // Telemetrie senden
   RxOn
 //  RxWaitBind                  // 1ms warten
 };

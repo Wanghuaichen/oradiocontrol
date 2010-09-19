@@ -44,22 +44,25 @@ void cc2500_Init(uint8_t power)
   cc2500_Off();                         // SS wegnehmen
 
   SPI_MasterTransmit(CC2500_IOCFG2 | CC2500_WRITE_BURST);
-//  for(i = 0;i < sizeof(cc2500InitValue);++i)
   do
   {
     SPI_MasterTransmit(pgm_read_byte(init++));
   }
-  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 2));
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 3));
   cc2500_Off();                    // SS wegnehmen wegen Burst
-  cc2500WriteReg(CC2500_TEST2, pgm_read_byte(init++));
-  cc2500WriteReg(CC2500_TEST1, pgm_read_byte(init));
+  SPI_MasterTransmit(CC2500_TEST2 | CC2500_WRITE_BURST);
+  do
+  {
+    SPI_MasterTransmit(pgm_read_byte(init++));
+  }
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
+  cc2500_Off();                    // SS wegnehmen wegen Burst
   cc2500setPatableMax(power);
 }
 
 bool checkcc2500(void)
 {
   prog_uint8_t *init = cc2500InitValue;
-//  uint8_t i;
   bool f = true;
 
   _delay_ms(100);
@@ -69,14 +72,15 @@ bool checkcc2500(void)
     if(SPI_MasterTransmit(0) != pgm_read_byte(init++))
       f = false;
   }
-  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 2));
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 3));
   cc2500_Off();                    // SS wegnehmen wegen Burst
-
-//  for(i = 0;i < sizeof(cc2500InitValue);++i)
-//    if(SPI_MasterReadReg(i) != pgm_read_byte(&cc2500InitValue[i]))
-//      f = false;
-  if((cc2500ReadReg(CC2500_TEST2) != pgm_read_byte(init++))
-      || (cc2500ReadReg(CC2500_TEST1) != pgm_read_byte(init)))
-    f = false;
+  SPI_MasterTransmit(CC2500_TEST2 | CC2500_READ_BURST);
+  do
+  {
+    if(SPI_MasterTransmit(0) != pgm_read_byte(init++))
+      f = false;
+  }
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
+  cc2500_Off();                    // SS wegnehmen wegen Burst
   return f;
 }

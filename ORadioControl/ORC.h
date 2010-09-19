@@ -78,9 +78,9 @@ extern uint8_t get_RxCount(void);
 extern void cc2500FlushReceiveData(void);
 extern void cc2500ReadFIFOBlock(uint8_t *, uint8_t);
 extern void cc2500ReadSingle(uint8_t *, uint8_t);
-extern void cc2500WriteFIFOBlock(uint8_t *, uint8_t);
+extern uint8_t cc2500WriteFIFOBlock(uint8_t *, uint8_t);
 extern void cc2500WriteSingle(uint8_t *, uint8_t);
-extern void setFrequencyOffset(void);
+extern void setFrequencyOffset(int8_t, bool);
 extern uint8_t get_Data(void);
 extern void cc2500setPatableMax(uint8_t);
 extern void cc2500_Off(void);
@@ -89,8 +89,11 @@ extern bool checkcc2500(void);
 extern void cc2500StartCal(void);
 extern void calibrateOff(void);
 extern void calibrateOn(void);
+extern void stayInRx(void);
+extern void gotoIdle(void);
+extern uint8_t cc2500IdleGetRXB(void);
 
-extern prog_uint8_t cc2500InitValue[43];
+extern prog_uint8_t cc2500InitValue[45];
 
 #define NOP() { __asm__ __volatile__ ("nop"); }
 #define SET_BIT(port,bit)  (port |=  (1<<bit))
@@ -110,7 +113,43 @@ extern prog_uint8_t cc2500InitValue[43];
 #define K_MODEFAILSAFE
 #define MAXHOPPCHAN 195               // muss ungerade sein
 #define MAXCHAN 8
-#define CYCLETIME (F_CPU * 10 / 32 / 10000 - 1)
+
+#define CHANTIME (F_CPU * 10 / 256 / 4730 - 1)
+#if (CHANTIME > 255)
+ #error Zykluszeit zu gross!!
+#endif
+#define CHANTIME04 ((CHANTIME + 1) * 10 / 25 - 1)
+#if (CHANTIME04 > 255)
+ #error Zykluszeit zu gross!!
+#endif
+#define CHANTIME06 ((CHANTIME + 1) - (CHANTIME04 + 1) - 1)
+#if (CHANTIME06 > 255)
+ #error Zykluszeit zu gross!!
+#endif
+#define CHANTIME15 ((CHANTIME + 1) * 15 / 10 - 1)
+#if (CHANTIME15 > 255)
+ #error CHANTIME15 Zykluszeit zu gross!!
+#endif
+#define CHANTIME2 (CHANTIME * 2 + 1)
+#if (CHANTIME2 > 255)
+ #error Zykluszeit zu gross!!
+#endif
+#define CHANTIME3 ((CHANTIME + 1) * 3 - 1)
+#if (CHANTIME3 > 255)
+ #error Zykluszeit zu gross!!
+#endif
+#define TELETIME (F_CPU * 10 / 256 / 3333 - 1)
+#if (TELETIME > 255)
+ #error Zykluszeit zu gross!!
+#endif
+#define TELETIME02 ((TELETIME + 1) * 10 / 50 - 1)
+#if (TELETIME02 > 255)
+ #error Zykluszeit zu gross!!
+#endif
+#define TELETIME08 ((TELETIME + 1) - (TELETIME02 + 1) - 1)
+#if (TELETIME08 > 255)
+ #error Zykluszeit zu gross!!
+#endif
 
 typedef struct t_BindData
 {
@@ -121,39 +160,73 @@ typedef struct t_BindData
 
 typedef struct t_MessageChan
 {
-  uint8_t   mode:1;
-  uint8_t   channel:4;         // Kanalnummer aktuelle Ausgabe
-  uint16_t  chan_1us:11;       // Wert
-}__attribute__((packed)) MessageChan;
+  uint16_t   chan1_1us:11;       // Wert
+  uint16_t   chan2_1us:11;       // Wert
+  uint16_t   chan3_1us:11;       // Wert
+  uint16_t   chan4_1us:11;       // Wert
+  uint8_t    type:3;
+  uint8_t    rts:1;
+}__attribute__((packed)) MessageChan;    // 44 + 4 = 48 Bit = 6 Byte
 
 typedef struct t_MessageFailSafe
 {
-  uint8_t   mode:1;
+  uint8_t   FailTime1:4;
+  uint8_t   FailMode1:2;
+  uint8_t   FailTime2:4;
+  uint8_t   FailMode2:2;
+  uint8_t   FailTime3:4;
+  uint8_t   FailMode3:2;
+  uint8_t   FailTime4:4;
+  uint8_t   FailMode4:2;         // 3 Byte
+  uint8_t   dummy1;
+  uint8_t   seq;
+  uint8_t   dummy2:4;
+  uint8_t   type:3;
   uint8_t   rts:1;
-  uint8_t   typ:4;
-  uint8_t   channel:4;         // Kanalnummer
-  uint8_t   FailMode:2;
-  uint8_t   FailTime:4;
 }__attribute__((packed)) MessageFailSafe;
 
 typedef struct t_MessageCommand
 {
-  uint8_t   mode:1;
+  uint32_t  command;
+  uint8_t   seq;
+  uint8_t   dummy2:4;
+  uint8_t   type:3;
   uint8_t   rts:1;
-  uint16_t  command:14;
 }__attribute__((packed)) MessageCommand;
 
 typedef union t_MessageData
 {
-  MessageCommand command;
-  MessageChan channel;
+  MessageCommand  command;
+  MessageChan     channel;
   MessageFailSafe failSafe;
 }__attribute__((packed)) MessageData;
 
 typedef struct t_Telemetrie
 {
-  uint16_t  sensor;
-  uint16_t  data;
+  uint32_t  data;
+  uint8_t   sensor;
+  uint8_t   seq;
 }__attribute__((packed)) Telemetrie;
 
 /*eof*/
+/*
+0000
+1xxx    Sendeaufforderung
+x000    Kanal 1 - 4
+x001    Kanal 5 - 8
+x010    Kanal 9 - 12
+x011    Kanal 13 - 16
+x100    ??
+x101    ??
+x110    ??
+x111    Telemetrie
+
+2,125ms für Telegramm nach oben
+2,125ms für Telegramm nach oben
+2,125ms für Telegramm nach oben
+2,125ms für Telegramm nach oben
+2,125ms für Telegramm nach oben
+2,125ms für Telegramm nach oben
+2,125ms für Telegramm nach oben
+2,125ms für Telegramm nach oben
+3ms für Telemetrie nach unten */

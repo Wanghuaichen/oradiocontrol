@@ -32,6 +32,9 @@ Synchrones Ausgeben schwierig bei gleichen oder ähnlichen Timerwerten.
 
 10ms Frame ist nicht zu schaffen (1ms pro Kanal + 2ms Rückkanal)
 
+Interrupt Timer ist relevant
+Interrupt Empfänger dient als Eingang für PLL
+
 done:
 Ausgabe der Einzelkanäle kann sofort erfolgen wenn Daten empfangen
 Bei Empfang Interrupt ein, beim Senden aus
@@ -103,7 +106,7 @@ State state;
 OutputData output;
 //volatile uint16_t Timer1ms;
 volatile uint16_t Timer25ms;
-bool RxInterrupt, TimerInterrupt;
+volatile bool TimerInterrupt, ReceiverInterrupt;
 //uint8_t heartbeat;
 PPM pulses[16];
 Telemetrie telemetrieBuf[8];
@@ -306,14 +309,12 @@ void get_mcusr(void)
 
 ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)
 {
-//  ++Timer1ms;
   TimerInterrupt = true;
 }
 
 ISR(INT0_vect, ISR_NOBLOCK)
 {
-  RxInterrupt = true;
-//  RES_BIT(EIMSK, INT0);                    // INT0 aus, dient nur zum wecken
+  ReceiverInterrupt = true;
 }
 
 /**********************************/
@@ -527,13 +528,13 @@ ISR(TIMER1_COMPA_vect)                  //8MHz pulse generation
 {
 //  TIMSK1 &= ~(1<<OCIE1A);                   // Interrupt aus
 
-//  while(TCNT1L < 25);
+  while(TCNT1L < 0x40);                 // springt 5
+  uint8_t c = TCNT1L;  
   uint8_t act = output.act;
   (*pulses[act].function)();
 
   sei();
 
-  uint8_t c = TCNT1L;
   if(output.latenzMin > c)
     output.latenzMin = c;
   if(output.latenzMax < c)
@@ -561,32 +562,37 @@ ISR(TIMER1_COMPA_vect)                  //8MHz pulse generation
   else
     OCR1A = pulses[act].timer;
   output.act = act;
+  static uint8_t tes;
+  if(TCNT1L > tes)
+    tes = TCNT1L;
+
 }
 
 void setupPulses(uint8_t chan)              // Pulse in Warteschlange einfügen
 {
-  if(output.timer[chan] < 20)                   // Ausgänge mit minimal 20ms Abstand
-    return;
-  uint8_t nextFree = output.nextFree;
-  pulses[nextFree].function = (void (*)())pgm_read_word(&set_Channel_On[chan]);
-  pulses[nextFree].timer = 200;             // ca. 200 Befehle Abstand für Interrupts (25us)
-  ++nextFree;
-  nextFree &= 0xf;
-  pulses[nextFree].function = (void (*)())pgm_read_word(&set_Channel_Off[chan]);
-  pulses[nextFree].timer = (output.chan_1us[chan] + 1500u) * 8 ;
-  ++nextFree;
-  nextFree &= 0xf;
-  output.chanFlag &= ~(1 << chan);
-  output.nextFree = nextFree;       // gefahrlos da atomic
-
-  if(!(TIMSK1 & (1<<OCIE1A)))        // Ist doch schon aus
+  if(output.timer[chan] > 10)                   // Ausgänge mit minimal 10ms Abstand
   {
-    TCNT1 = 0;
-    OCR1A = pulses[output.act].timer;
-    SET_BIT(TIFR1, OCF1A);
-    SET_BIT(TIMSK1, OCIE1A);          // Timer Interrupt Mask Register
+    uint8_t nextFree = output.nextFree;
+    pulses[nextFree].function = (void (*)())pgm_read_word(&set_Channel_On[chan]);
+    pulses[nextFree].timer = 200;             // ca. 200 Befehle Abstand für Interrupts (25us)
+    ++nextFree;
+    nextFree &= 0xf;
+    pulses[nextFree].function = (void (*)())pgm_read_word(&set_Channel_Off[chan]);
+    pulses[nextFree].timer = (output.chan_1us[chan] + 1500u) * 8 ;
+    ++nextFree;
+    nextFree &= 0xf;
+    output.nextFree = nextFree;       // gefahrlos da atomic
+
+    if(!(TIMSK1 & (1<<OCIE1A)))        // Ist doch schon aus
+    {
+      TCNT1 = 0;
+      OCR1A = pulses[output.act].timer;
+      SET_BIT(TIFR1, OCF1A);
+      SET_BIT(TIMSK1, OCIE1A);          // Timer Interrupt Mask Register
+    }
+    output.timer[chan] = 0;
   }
-  output.timer[chan] = 0;
+//  output.chanFlag &= ~(1 << chan);
 }
 
 //void setupPulsesPPM_quad(void)
@@ -683,11 +689,33 @@ void cc2500_Off(void)
   while(!(PINB & (1<<OUT_B_SPI_SS)));
 }
 
-void setNextChanCheckIdle(void)                // Kanal schreiben
+void setNextChan(void)                // Kanal schreiben
+{
+  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
+  while(tempChan > MAXHOPPCHAN)
+    tempChan -= (MAXHOPPCHAN + 1);
+  state.actChan = tempChan;
+  cc2500WriteReg(CC2500_CHANNR, tempChan);
+}
+
+void setNextChanCheckIdleFail(void)                // Kanal schreiben
+{
+  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
+  tempChan += eeprom.bind.step * 2 + 1;
+  tempChan += eeprom.bind.step * 2 + 1;
+  while(tempChan > MAXHOPPCHAN)
+    tempChan -= (MAXHOPPCHAN + 1);
+  state.actChan = tempChan;
+  cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
+}
+
+void setNextChanCheckIdle(uint8_t c)                // Kanal schreiben
 {
   if(PIND & (1<<INP_D_CC2500_GDO0))
     SET_BIT(state.ledError, L_TX_NOT_READY);
-  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
+  uint16_t tempChan = state.actChan;
+  while(c--)
+    tempChan += eeprom.bind.step * 2 + 1;
   while(tempChan > MAXHOPPCHAN)
     tempChan -= (MAXHOPPCHAN + 1);
   state.actChan = tempChan;
@@ -698,10 +726,12 @@ void setRx(void)                // Kanal schreiben
 {
   SET_BIT(PORTB, OUT_B_PRE);
   cc2500CommandStrobe(CC2500_SRX);       // Kalibrieren
-  SET_BIT(EIFR, INTF0);
-  SET_BIT(EIMSK, INT0);                    // INT0 ein
+//  SET_BIT(EIFR, INTF0);
+//  SET_BIT(EIMSK, INT0);                    // INT0 ein
+//  Timercapt = 0;
 }
 
+/*
 void setPaketsizeReceive(void)
 {
   cc2500WriteReg(CC2500_PKTLEN, sizeof(MessageData));
@@ -710,7 +740,7 @@ void setPaketsizeReceive(void)
 void setPaketsizeSend(void)
 {
   cc2500WriteReg(CC2500_PKTLEN, sizeof(Telemetrie));
-}
+}*/
 
 void setAnt(bool ant)
 {
@@ -741,11 +771,39 @@ void setFreeChanRx(void)            // Nächsten Kanal einstellen um zu sehen, o
   uint16_t tempChan = state.actChan + 3;
   if(tempChan > MAXHOPPCHAN)
     tempChan -= (MAXHOPPCHAN + 1);
-  cc2500Idle();
+//  cc2500Idle();
   cc2500WriteReg(CC2500_CHANNR, tempChan);
-  SET_BIT(PORTB, OUT_B_PRE);
-  cc2500CommandStrobe(CC2500_SRX);
+  setRx();
+//  SET_BIT(PORTB, OUT_B_PRE);
+//  cc2500CommandStrobe(CC2500_SRX);
   state.actChan = tempChan;
+}
+
+void setFrequencyOffset(int8_t freqoff, bool lim)
+{
+  int16_t freq;
+
+//  freqoff = cc2500ReadStatusReg(CC2500_FREQEST);
+//  cc2500_Off();
+  if(freqoff)
+  {
+//    fsctrl = cc2500ReadReg(CC2500_FSCTRL0);
+//    freq = freqoff + fsctrl;
+    if(lim)
+    {
+      if(freqoff > 1)
+        freqoff = 1;
+      else if(freqoff < -1)
+        freqoff = -1;
+    }
+    freq = freqoff + state.freqOffset;
+    if(freq > 0x7f)
+      freq = 0x7f;
+    else if(freq < -0x80)
+      freq = -0x80;
+    state.freqOffset = freq;
+    cc2500WriteReg(CC2500_FSCTRL0, (int8_t)freq);
+  }
 }
 
 prog_int8_t APM freq[] = {0, -120, +120, +40, -40, -80, 80};
@@ -755,6 +813,7 @@ void setNewRxFrequ(void)
   setAnt(state.actAnt);               // Antenne wechseln
   if(++state.actFreqIdx >= 7)
     state.actFreqIdx = 0;
+  state.freqOffset = pgm_read_byte(&freq[state.actFreqIdx]);
   cc2500WriteReg(CC2500_FSCTRL0, pgm_read_byte(&freq[state.actFreqIdx]));
 }
 
@@ -767,20 +826,85 @@ void setReceiveError(void)
     ++state.errorSum;                 // max über 3h Totalausfall
 }
 
+/*
+uint8_t min, max, minc, maxc, c;
+uint16_t minus, plus;
+
 void clearCount(void)
 {
-  TCNT2 = 0;                          // Timer kommt eher später
-  TimerInterrupt = false;
+  c = TCNT2;
+  TCNT2 = CYCLETIME - 0x20;                          // Timer kommt später
+//  TimerInterrupt = false;
+  max = maxc = 0;
+  min = minc = 0xff;
 }
 
-void readBindData(void)
+uint8_t capt[0x40];
+uint8_t poi;
+
+void pllCount(void)
+{
+  if(max < TCNT2)
+    max = TCNT2;
+  if(min > TCNT2)
+    min = TCNT2;
+  if(maxc < Timercapt)
+    maxc = Timercapt;
+  if(minc > Timercapt)
+    minc = Timercapt;
+  if(poi < 0x40)
+  {
+    capt[poi] = Timercapt;
+    ++poi;
+//    poi &= 0x3f;
+  }
+
+
+  if(Timercapt > CYCLETIME - 0x40)
+  {
+    int8_t d = (CYCLETIME - 0x20) - Timercapt;
+    TCNT2 += d;
+    if(d < 0)
+    {
+      ++minus;
+      if(Pll > -14)
+        --Pll;
+    }
+    else if(d > 0)
+    {
+      ++plus;
+      if(Pll < 14)
+        ++Pll;
+    }
+
+
+    if(Timercapt > CYCLETIME - 0x20)
+    {
+      --TCNT2;
+      ++minus;
+      if(Pll > -14)
+        --Pll;
+    }
+    else
+    {
+      ++TCNT2;
+      ++plus;
+      if(Pll < 14)
+        ++Pll;
+    }
+  }
+  else
+    NOP();
+  Timercapt = 0;
+}  */
+
+bool readBindData(void)
 {
   MessageBind mes;
 
   cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes));
   if(mes.crcOk)
   {
-    clearCount();
     eeprom.bind.id = mes.data.id;
     eeprom.bind.step = mes.data.step;
     eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
@@ -788,14 +912,19 @@ void readBindData(void)
     while(1);                   //       reset
   }
   else
-    setReceiveError();
+    return(false);
 }
 
 void getFailSafe(void)
 {
   uint8_t i;
   for(i = 0;i < MAXCHAN;++i)
-    output.chan_1us[i] = eeprom.failSafe[i].failSafePos;
+  {
+    int16_t temp = eeprom.failSafe[i].failSafePos;
+    if(temp & 0x400)
+      temp  |= 0xf800;
+    output.chan_1us[i] = temp;
+  }
 }
 
 void setFailSafe(void)
@@ -815,7 +944,12 @@ void tstFailSafe(void)
     if(eeprom.failSafe[i].failSafeMode)
     {
       if((eeprom.failSafe[i].failSafeDelay != 0xff) && (output.timeOut[i] > eeprom.failSafe[i].failSafeDelay + 1))
-        output.chan_1us[i] = eeprom.failSafe[i].failSafePos;
+      {
+        int16_t temp = eeprom.failSafe[i].failSafePos;
+        if(temp & 0x400)
+          temp  |= 0xf800;
+        output.chan_1us[i] = temp;
+      }
       if(output.timeOut[i] > 1)
         setupPulses(i);
       if(output.timeOut[i] < 0xff)
@@ -824,70 +958,78 @@ void tstFailSafe(void)
   }
 }
 
-void setOutputTimer(void)
+void setOutputTimer(uint8_t t)
 {
   uint8_t i;
+  uint16_t w;
   for(i = 0;i < MAXCHAN;++i)
-    if(output.timer[i] < 0xff)
-      ++output.timer[i];
+  {
+    w = output.timer[i] + t;
+    if(w > 0xff)
+      output.timer[i] = 0xff;
+    else
+      output.timer[i] = w;
+  }
+}
+void setChan(uint8_t i, uint16_t val)
+{
+  if(val & 0x400)
+    val |= 0xf800;
+  output.chan_1us[i] = val;
+  output.timeOut[i] = 0;
+  setupPulses(i);
 }
 
-void readData(void)
+void copyChan(Message *mes, uint8_t x)
 {
-//  uint8_t data, lqi, chan, id;
-//  int8_t rssi;
+  setChan(x++, mes->data.channel.chan1_1us);
+  setChan(x++, mes->data.channel.chan2_1us);
+  setChan(x++, mes->data.channel.chan3_1us);
+  setChan(x, mes->data.channel.chan4_1us);
+}
+
+bool readData(void)
+{
   Message mes;
-  static uint8_t chanOld;
 
   cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes));
   if(mes.crcOk)          // CRC ok
   {
-    clearCount();
-    if(!mes.data.command.mode)
+    if(mes.data.command.rts)
+      state.RxCount = 7;
+    else if(state.RxCount >= 7)
+      state.RxCount = 0;
+
+    uint8_t type = mes.data.channel.type;
+    if(type != 0x7)
     {
-      uint8_t chan = mes.data.channel.channel;
       if(!eeprom.chanOff)
-        chan -= MAXCHAN;                  // Kanäle 8 - 16 verwenden
-      if(chan < MAXCHAN)
+        type -= 2;                  // Kanäle 8 - 16 verwenden
+      if(type == 0)
       {
-        if(output.chanMax < chan)
-          output.chanMax = chan;
-
-        if(chanOld > chan)                        // Ein Durchlauf fertig
-          output.chanFlag = 0;
-        chanOld = chan;
-
-        output.chan_1us[chan] = mes.data.channel.chan_1us;
-        output.timeOut[chan] = 0;
-        output.chanFlag |= (1 << chan);
-//        if(output.chanMax > chan)
-//          setupPulsesPPM_quad();                  // Wenn alles gut war, Ausgänge aktivieren
-        setupPulses(chan);
-        //???
-        //output.chanMax = chan;                // Einmal muss es gehen, wegen init
+        copyChan(&mes, 0);
+      }
+      else if(type == 1)
+      {
+        copyChan(&mes, 4);
       }
     }
     else
     {
-      if(mes.data.command.rts)
-        state.RxCount = 8;
-      else if(state.RxCount >= 8)
-        state.RxCount = 0;
       if(mes.data.command.command == 1)     // FailSafe Position setzen
         setFailSafe();
       else
         RES_BIT(state.ledError, L_SET_FAILSAVE);
-    // Achtung auch bei Ausfall des letzten Telegramms PPM erzeugen
-        // Achtung je nach Kanal Latenz ausgleichen!!!
     }
     if((mes.rssi > 50) || (mes.lqi < 5))   // Empfang schlecht
       setAnt(state.actAnt);               // Antenne wechseln
     if(state.okSum < 0xffff)
       ++state.okSum;
     state.errorCount = 0;
+    return(true);
   }
   else
-    setReceiveError();
+    return(false);
 }
 
 uint8_t read, write;
@@ -899,15 +1041,15 @@ void writeTelemetrie(uint16_t sensor, uint16_t value)
   write &= 0x7;
 }
 
-void sendTelemetrie(void)  // Da Timer hinterherhinkt wird etwas später gesendet
+void sendTelemetrie(void)  // wird etwas später gesendet, + 0,5ms
 {
   Telemetrie mes;
   static uint8_t count;
 
-  setNextChanCheckIdle();
+//  setNextChanCheckIdle();
   if(!eeprom.txEnable)
     return;
-  cc2500CommandStrobe(CC2500_SFTX);      // ??
+  cc2500CommandStrobe(CC2500_SFTX);
   if(read != write)
   {
     mes.sensor = telemetrieBuf[read].sensor;
@@ -921,32 +1063,33 @@ void sendTelemetrie(void)  // Da Timer hinterherhinkt wird etwas später gesende
     mes.data = state.scanCount | count++ * 0x100;
   }
   cc2500WriteFIFOBlock((uint8_t *)&mes, sizeof(mes));
-  RES_BIT(EIMSK, INT0);                    // INT0 aus
   RES_BIT(PORTB, OUT_B_PRE);
   cc2500CommandStrobe(CC2500_STX);            // Enable TX
 }
 
-void processData(uint8_t data_len)                // Nachsehen ob was da
+bool processData(uint8_t data_len)                // Nachsehen ob was da
 {
   if(state.bindmode)
   {
     if(data_len == sizeof(MessageBind))
-      readBindData();
+      return(readBindData());
     else
     {
-      setReceiveError();
+//      setReceiveError();
       //  cc2500FlushReceiveData();           // geht nicht Empfänger läuft schon wieder!?
       while(data_len-- > 0)
         cc2500ReadReg(CC2500_RXFIFO);
+      return(false);
     }
   }
   else if(data_len == sizeof(Message))
-    readData();
+    return(readData());
   else
   {
-    setReceiveError();
+//    setReceiveError();
     while(data_len-- > 0)
       cc2500ReadReg(CC2500_RXFIFO);
+    return(false);
   }
 }
 
@@ -963,15 +1106,13 @@ bool checkKey(void)
 
 void set_led(void)
 {
-  static uint16_t timer_alt;
+  static uint8_t timer_alt;
   static uint8_t led_count;
-  uint16_t timerTemp;
 
-  timerTemp = Timer25ms;
-  int16_t diff = timerTemp - timer_alt;
-  if(diff > 9)
+  int8_t diff = ((uint8_t)Timer25ms) - timer_alt;
+  if(diff > (1000 / 4 / 25))
   {
-    timer_alt = timerTemp;
+    timer_alt = (uint8_t)Timer25ms;
 
     if(!(led_count & 0xf))            // unteres Nibble 0 (Blinkzähler)
     {
@@ -990,13 +1131,6 @@ void set_led(void)
           }
         }
       }
-      else
-      {
-        if(!state.errorCount)
-          LED_ON;
-        else
-          LED_OFF;
-      }
     }
     else
     {
@@ -1006,9 +1140,24 @@ void set_led(void)
       else
         LED_OFF;
       if(!(led_count & 0xf))
-        timer_alt += 25;                    // Pause
+        timer_alt += (1000 / 4 / 25 * 3);                    // Pause
     }
   }
+  if(!(led_count & 0xf) && !state.ledError)
+  {
+    if(state.led)
+      LED_ON;
+    else
+      LED_OFF;
+  }
+  state.led = true;
+}
+
+void setTimer(uint8_t value)
+{
+  OCR2A = value;
+//  TCNT2 = 0;
+  TimerInterrupt = false;
 }
 
 void setBindMode(void)
@@ -1022,10 +1171,11 @@ void setBindMode(void)
   eeprom.bind.step = BINDMODESTEP;
 }
 
-void rxState(uint8_t data_len)
+void rxState(void)
 {
   static enum receiver rxstate;
   static uint16_t counter;
+  uint8_t cc2500status, frequ, data_len;
 
   switch(rxstate)
   {
@@ -1037,138 +1187,195 @@ void rxState(uint8_t data_len)
     }
     else
     {
-      setPaketsizeReceive();
+//      setPaketsizeReceive();
+      cc2500WriteReg(CC2500_PKTLEN, sizeof(MessageData));
       state.bindmode = false;
     }
     calibrateOn();
     setFreeChanRx();                 // Kanal einstellen und Empfang ein
     counter = 0;
     state.errorCount = 1;
-    rxstate = RxWaitStart;
-    setOutputTimer();
-    break;
-  case RxWaitStart:                  // auf Empfänger warten
     rxstate = checkRSSI;
-    setOutputTimer();
+    setTimer(CHANTIME);
     break;
   case checkRSSI:                   // Kanal frei?
-    if((counter > 100) || checkchanFree() ||
-        (PIND & (1 << INP_D_CC2500_GDO0)) || (cc2500GetState() != CC2500_STATE_RX))
+    if((counter > 100) || checkchanFree() ||   // lesen von RSSI und Status kann gleich sein
+        (PIND & (1 << INP_D_CC2500_GDO0)) || (cc2500GetState() != CC2500_STATE_RX) || ReceiverInterrupt)
     {
       counter = 0;
       rxstate = waitForData;
+      setTimer(CHANTIME2);
     }
     else
     {
+      cc2500Idle();
       setFreeChanRx();                 // Neuer Kanal einstellen und Empfang ein
       ++counter;
-      rxstate = RxWaitStart;
+      TimerInterrupt = false;
     }
-    setOutputTimer();
     break;
   case waitForData:                 // Eine Sekunde auf Empfang warten
     if(PIND & (1 << INP_D_CC2500_GDO0))        // Einsprung über Timerinterrupt und Empfang läuft gerade
-      return;
-    if(data_len || (cc2500GetState() != CC2500_STATE_RX))
     {
-      if(data_len || (data_len = get_RxCount()))
-      {                           // irgendwelche Daten da (Prüfsumme und Länge war ok!)
-        setNextChanCheckIdle();
-        calibrateOff();
-        setFrequencyOffset();
-        setRx();
-        processData(data_len);            // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
-        if(state.RxCount < 8)
-        {
-          rxstate = RxWait;             // Beim ersten Mal nicht senden!!
-          state.RxCount = 0;
+      TimerInterrupt = false;
+      return;
+    }
+    cc2500status = SPI_MasterTransmit(CC2500_SNOP | CC2500_READ_SINGLE);
+    if(cc2500status != CC2500_STATE_RX)
+    {
+      if(ReceiverInterrupt)
+      {
+        if(cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM)
+        {                           // irgendwelche Daten da (Prüfsumme und Länge war ok!)
+          setNextChanCheckIdle(1);
+          calibrateOff();
+          setFrequencyOffset(cc2500ReadStatusReg(CC2500_FREQEST), false);
+          setRx();
+          if(processData(cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM))            // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
+          {
+            TCNT2 = 0;
+            if(state.RxCount < 7)
+            {
+              rxstate = Main;
+//              state.synch = true;
+              setTimer(CHANTIME);
+            }
+            else                                        // Beim ersten Mal nicht senden!!
+            {
+              setNextChanCheckIdle(1);                  // Kanal überspringen
+              setRx();                                  // Auf Empfang
+            }
+            state.RxCount = 0;
+            counter = 0;
+          }
         }
         else
         {
-          setNextChanCheckIdle();                  // Kanal überspringen
-          setRx();                        // Auf Empfang
+          setRx();
         }
-        counter = 0;
+        ReceiverInterrupt = false;
       }
       else
       {
-        cc2500CommandStrobe(CC2500_SFRX);   // nicht ganz korrekt, weil counter nicht ausgewertet
-        cc2500CommandStrobe(CC2500_SRX);
+        cc2500Idle();
+        cc2500CommandStrobe(CC2500_SFRX);
+        setRx();
+        TimerInterrupt = false;
       }
     }
     else
     {
-      if(counter > MAXHOPPCHAN * 2)     // ca. 0.5 Sekunde warten
-      {                                 // Neu initialisieren ??
+      if(counter > MAXHOPPCHAN)
+      {
+        cc2500Idle();
         setNewRxFrequ();                // Frequenz verstellen
         setFreeChanRx();                 // Kanal einstellen und Empfang ein
         counter = 0;
-        rxstate = RxWaitStart;
+        rxstate = checkRSSI;
+        setTimer(CHANTIME);
       }
       else
         ++counter;
+      TimerInterrupt = false;
     }
-    setOutputTimer();
     break;
   case Main:                                    // Frequenz einstellen und Kalibrieren
-    if(PIND & (1 << INP_D_CC2500_GDO0))        // Einsprung über Timerinterrupt und Empfang läuft gerade
-      return;
-    if(state.errorCount > 200)       // 200 Telegramme nicht empfangen
+    if(state.errorCount > 10)       // 20 Telegramme nicht empfangen
     {
-      setFreeChanRx();                 // Kanal einstellen und Empfang ein
+      setNextChanCheckIdleFail();                 // Kanal einstellen und Empfang ein
       counter = 0;
       state.errorCount = 1;
-      rxstate = RxWaitStart;
+      rxstate = waitForData;
+      state.actFreqIdx = 7;
+      setNewRxFrequ();                // Frequenz auf 0 verstellen
+//      state.synch = false;
+      setTimer(CHANTIME2);
       if(state.scanCount < 0xff)
         ++state.scanCount;
     }
     else
-    {         // Frequenz nur bei gutem Paket oder Timer wechseln
-      setNextChanCheckIdle();                      // wechselt auf Idle
-      if(data_len || (data_len = get_RxCount()))      // irgendwelche Daten da (Prüfsumme und Länge war ok!)
-        setFrequencyOffset();
-      if(state.RxCount < 8)
+    {
+      if(ReceiverInterrupt)
       {
-        setRx();
-        rxstate = RxWait;
+        cc2500status = SPI_MasterTransmit(CC2500_FREQEST | CC2500_READ_BURST);
+        frequ = SPI_MasterTransmit(CC2500_SNOP);
+
+        if(cc2500status != 0x10)
+        {
+          if((cc2500status & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
+            cc2500Idle();
+          if((data_len = cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM)
+              && ((cc2500status & CC2500_STATUS_STATE_BM) == CC2500_STATE_IDLE))
+          {
+            setFrequencyOffset(frequ, true);
+            setNextChanCheckIdle(1);                      // wechselt auf Idle
+            if(state.RxCount < 7)                   // es kommt noch was
+              setRx();
+            if(processData(data_len))                // state.RxCount wird hier geändert
+            {
+              TCNT2 = 0;
+              if(state.RxCount >= 7)
+              {
+                calibrateOn();
+ //               setPaketsizeSend();
+                rxstate = TxOn;
+                state.RxCount = 0;
+                setTimer(TELETIME02);
+              }
+              else
+              {
+                ++state.RxCount;
+                setTimer(CHANTIME);
+              }
+            }
+            else
+              setTimer(CHANTIME15);
+          }
+          else
+          {
+            cc2500CommandStrobe(CC2500_SFRX);
+            setRx();
+          }
+        }
+        ReceiverInterrupt = false;
       }
-      processData(data_len);                // state.RxCount wird hier geändert
-      if(state.RxCount >= 8)
+      else
       {
-        calibrateOn();                  // Zeit reicht weil hier auf jeden Fall auf idle gewechselt wird
-        setPaketsizeSend();             // wenn von 8 auf 0 gewechselt wird, wird nicht empfangen!!
-        rxstate = TxOn;
-        state.RxCount = 0;
-        OCR2A  = CYCLETIME / 2;               // ergibt 0,5 ms
+        cc2500CommandStrobe(CC2500_SIDLE);
+        setReceiveError();
+        setTimer(CHANTIME2);
+        state.RxCount += 2;
+        if(state.RxCount > 7)
+          state.RxCount -= 7 + 1;
+        setNextChanCheckIdle(2);                      // wechselt auf Idle
+//        setNextChanCheckIdle();                      // wechselt auf Idle
+        setRx();
+        TimerInterrupt = false;
       }
     }
-    setOutputTimer();
-    break;
-  case RxWait:                      // Daten empfangen
-    rxstate = Main;
-    ++state.RxCount;
-    setOutputTimer();
     break;
   case TxOn:                      // Daten reinschreiben Sender einschalten und senden
+    setTimer(TELETIME08);
     sendTelemetrie();
-    rxstate = TxWait;
-    break;
-  case TxWait:                  // Jetzt wird weitergesendet
-    OCR2A  = CYCLETIME;               // ergibt 1ms (1000 Hz)
-    rxstate = TxWait2;
-    setOutputTimer();
-    break;
-  case TxWait2:                  // Jetzt wird weitergesendet
     rxstate = RxOn;
-    setOutputTimer();
+    ReceiverInterrupt = false;
     break;
   case RxOn:                    // Senden fertig, Empfänger ein
-    setNextChanCheckIdle();
-    setPaketsizeReceive();
+//    if(ReceiverInterrupt)
+//    {
+//      ReceiverInterrupt = false;
+//      break;
+//    }
+//    TCNT2 = 0;
+    setTimer(CHANTIME);
+
+    setNextChanCheckIdle(1);
+//    setPaketsizeReceive();
     calibrateOff();
     setRx();
-    rxstate = RxWait;
-    setOutputTimer();
+    rxstate = Main;
+    ReceiverInterrupt = false;
+    TimerInterrupt = false;
     break;
   }
 }
@@ -1202,15 +1409,15 @@ int __attribute__((naked)) main(void)
   LED_ON;
 
 // Timer0 25 ms für LED und Failsafe
-  TCCR0A = (2 << WGM00);
+  TCCR0A = 0;                               //(2 << WGM00);
   TCCR0B = (5 << CS00);                     // clk/1024
   OCR0A = (F_CPU * 10 / 1024 / 400 - 1);
 //  TIFR0 = 0xff;
   TIMSK0 = 0;
 
 // Timer1 8MHz   Servoausgänge
-//  TCCR1A = 0;
-  TCCR1B = (4 << WGM10) | (1 << CS10);      // CTC OCR1A, 8MHz
+  TCCR1A = 0;
+  TCCR1B = (1 << WGM12) | (1 << CS10);     // CTC OCR1A, 8MHz
   TCNT1 = 0;
   OCR1A = 500 * 8;        // in 500us beginnen
 
@@ -1219,9 +1426,9 @@ int __attribute__((naked)) main(void)
 //  TCCR2A = 0;
   TCCR2A = (2 << WGM20);                        //  CTC mode
 //  TCCR2B = (3 << CS20);                         // clk/32
-  TCCR2B = (4 << CS20);                         // clk/32  (3 << CS20)
+  TCCR2B = (6 << CS20);                         // clk/256
 
-  OCR2A  = CYCLETIME;                           // ergibt 1ms (1000 Hz)
+  OCR2A  = CHANTIME;
   TCNT2 = 0;
 //  TIFR2  = 0xff;
   TIMSK2 = 1 << OCIE2A;
@@ -1229,6 +1436,7 @@ int __attribute__((naked)) main(void)
 //  wdt_enable(WDTO_500MS);
   EICRA = 1 << ISC01;           // int0 bei fallender Flanke
   EIMSK = 0;
+
 //  EIFR = 0xff;
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
@@ -1241,28 +1449,37 @@ int __attribute__((naked)) main(void)
   getFailSafe();
 //  wdt_enable(WDTO_30MS);
   LED_OFF;
+  output.latenzMin = 0xff;
+
+  SET_BIT(EIFR, INTF0);
+  SET_BIT(EIMSK, INT0);                    // INT0 ein
+
+  TimerInterrupt = false;
+  ReceiverInterrupt = false;
   sei();
   while(1){
     cc2500_Off();
     sei();
-    sleep_mode();                   //    warten bis was empfangen (Interrupt)
+//    sleep_mode();                   //    warten bis was empfangen (Interrupt)
     //nur bei Timer 1ms Interrupt oder Int0, nicht bei PPM- Interrupt
-    if(TimerInterrupt)
+    if(TimerInterrupt || ReceiverInterrupt)
     {
-      TimerInterrupt = false;
-      rxState(0);
+      rxState();
+      if(state.errorCount)
+        state.led = false;
     }
-    if(RxInterrupt)                     // checken ob Daten da sind sonst wieder auf Empfang
+    uint8_t t = TCNT0;
+    static uint8_t Timer0alt;
+    uint8_t dif = (t - Timer0alt) / 8;
+    if(dif)
     {
-      RxInterrupt = false;
-      uint8_t data_len;
-      if((data_len = get_RxCount()))
-        rxState(data_len);
-      else
-        setRx();
+      Timer0alt = t;
+      setOutputTimer(dif);
     }
+
     if(TIFR0 & (1 << OCF0A))
     {
+      OCR0A += (F_CPU * 10 / 1024 / 400);
       ++Timer25ms;
       SET_BIT(TIFR0,OCF0A);
       set_led();

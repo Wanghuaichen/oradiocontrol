@@ -23,13 +23,14 @@ typedef struct t_EEData
 
 typedef struct t_State
 {
-//  bool      bindmode:1;
+  bool      bindmode:1;
 //  bool      newIdMode:1;
 //  bool      keyMode:1;
   bool      SetFaileSafe:1;
+  bool      interrupt:1;
 //  bool      NewFrame:1;
   uint8_t   actChan;        // Eingestellter Kanal
-  uint8_t   maxChan;
+//  uint8_t   maxChan;
   uint8_t   txCount;
   uint8_t   ledError;
   uint16_t  errorcount;
@@ -52,18 +53,19 @@ typedef struct t_TelemetrieReceive
 {
   Telemetrie data;
   uint8_t rssi;
-  uint8_t crcOk:1;
   uint8_t lqi:7;
+  uint8_t crcOk:1;
 }__attribute__((packed)) TelemetrieReceive;
 
 enum transmitter
 {
   Start,
-  TxReady,                      // auf FSTXON wechseln
-  TxOn,                        // Daten schreiben und Sender aktivieren
+  TxReady,                    // auf FSTXON wechseln
+//  TxAmpOn,
+  TxOn,                       // Daten schreiben und Sender aktivieren
   RxOn,                       // Empfänger einstellen, Kalibrieren
-  RxWait2,                    // 1ms warten
-  RxWait3,
+//  RxWait2,                    // 1ms warten
+//  RxWait3,
   RxCalc,
   TxBindCheck,
   TxNextChanBind,
@@ -76,14 +78,16 @@ enum uart
   WaitToken,
   ReadChan,
   ReadMSB,
-  ReadLSB
+  ReadLSB,
+  ReadTelemetrieMSB,
+  ReadTelemetrieLSB
 };
 
 #define L_SET_FAILSAVE 0
 #define L_BIND_ON 1
 #define L_EEPROM_ERR 2
 #define L_SPI_ERROR 3
-#define L_xxx 4
+#define L_NOT_TX 4
 #define L_TX_NOT_RX 5
 #define L_TX_NOT_READY 6
 #define L_INIT_ERROR 7
