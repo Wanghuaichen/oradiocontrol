@@ -12,32 +12,29 @@
  *
  * Compiler: avr-gcc (GCC) 4.3.4
  *
+ * Version 0.1 :First connect
+ * Version 0.5 :range check (over 1,5 km)
+ * Version 1.0 :first fly
+ *
  *
 
 bugs:
 todo:
 tmain berechnen (min, max)
-Achtung: Beim Einschalten kein FailSafe wegen Regler (besser richtigen Mode auswählen)
+Achtung: Beim Einschalten FailSafe wegen Servos,
+         bei Regler unbedingt richtigen Failsafe- Mode auswählen)
 
 Sender am Boden ist der Master für das Timing
 
-(Option) Solange kein Telegramm ausfällt, reicht es die geänderten zu Übertragen.
-(Option) Immer wieder auch nicht veränderte übertragen. (bei Reset im Empfänger)
-         Bei Telemetrie könnte Sender Reset erkennen
-
-Mischbetrieb PPM- Ausgabe und Einzelausgabe schwierig
-
-Synchrones Ausgeben schwierig bei gleichen oder ähnlichen Timerwerten.
-  dort leichte Schachtelung nötig
-
-10ms Frame ist nicht zu schaffen (1ms pro Kanal + 2ms Rückkanal)
-
-Interrupt Timer ist relevant
-Interrupt Empfänger dient als Eingang für PLL
+Mischbetrieb PPM- Ausgabe und Einzelausgabe (schwierig)
 
 done:
-Ausgabe der Einzelkanäle kann sofort erfolgen wenn Daten empfangen
-Bei Empfang Interrupt ein, beim Senden aus
+gleichzeitige Ausgabe einer Gruppe (Kanal 1-4 oder Kanal 5-8) mit einer Auflösung von 1µs.
+Die Gruppen sollten bei PPM- Input um 10 ms und bei UART- Input um 3 ms versetzt sein um minimales
+Delay zu erreichen. Die Latenz kann bei PPM um 2 ms springen, weil das Sendemodul und nicht PPM der
+Master für das Timing ist. In der Telemetrielücke kann die Latenz auch auf 5 ms ansteigen.
+Bei UART- Input soll sich der Sender am Timing des Sendemoduls orientieren.
+Bitfelder entfernt, weil EEPROM- Speicher nicht kritisch, Flash ist wichtiger
 */
 
 //PIN 1   PD3   INT1/OC2B/PCINT19                       CC2500 GDO2
@@ -62,17 +59,16 @@ Bei Empfang Interrupt ein, beim Senden aus
 //PIN 20  AREF                                          --
 //PIN 21  GND                                           --
 //PIN 22  ADC7                                          -
-//PIN 23  PC0   ADC0/PCINT8                             Servo 8
-//PIN 24  PC1   ADC1/PCINT9                             Servo 7
-//PIN 25  PC2   ADC2/PCINT10                            Servo 6
-//PIN 26  PC3   ADC3/PCINT11                            Servo 5
-//PIN 27  PC4   SDA/ADC4/PCINT12                        Servo 4
-//PIN 28  PC5   SCL/ADC5/PCINT13                        Servo 3
+//PIN 23  PC0   ADC0/PCINT8                             Servo 1
+//PIN 24  PC1   ADC1/PCINT9                             Servo 2
+//PIN 25  PC2   ADC2/PCINT10                            Servo 3
+//PIN 26  PC3   ADC3/PCINT11                            Servo 4
+//PIN 27  PC4   SDA/ADC4/PCINT12                        Servo 5
+//PIN 28  PC5   SCL/ADC5/PCINT13                        Servo 6
 //PIN 29  PC6   RESET/PCINT14                           Reset
-//PIN 30  PD0   RXD/PCINT16                             Servo 2
-//PIN 31  PD1   TXD/PCINT17                             Servo 1
+//PIN 30  PD0   RXD/PCINT16                             Servo 7
+//PIN 31  PD1   TXD/PCINT17                             Servo 8
 //PIN 32  PD2   INT0/PCINT18                            CC2500 GDO0
-
 
 #define OUT_B_PRE PORTB0
 //#define OUT_B_SPI_SS PORTB2
@@ -83,14 +79,14 @@ Bei Empfang Interrupt ein, beim Senden aus
 #define OUT_D_ANT1 PORTD6
 #define OUT_D_ANT2 PORTD7
 
-#define OUT_D_CHANNEL1 PORTD1             // TXD
-#define OUT_D_CHANNEL2 PORTD0             // RXD
-#define OUT_C_CHANNEL3 PORTC5
-#define OUT_C_CHANNEL4 PORTC4
-#define OUT_C_CHANNEL5 PORTC3
-#define OUT_C_CHANNEL6 PORTC2
-#define OUT_C_CHANNEL7 PORTC1
-#define OUT_C_CHANNEL8 PORTC0
+#define OUT_C_CHANNEL1 PORTC0
+#define OUT_C_CHANNEL2 PORTC1
+#define OUT_C_CHANNEL3 PORTC2
+#define OUT_C_CHANNEL4 PORTC3
+#define OUT_C_CHANNEL5 PORTC4
+#define OUT_C_CHANNEL6 PORTC5
+#define OUT_D_CHANNEL7 PORTD0             // RXD
+#define OUT_D_CHANNEL8 PORTD1             // TXD
 
 //#define INP_D_CC2500_GDO0 PIND2
 //#define INP_D_CC2500_GDO2 PIND3
@@ -99,6 +95,8 @@ Bei Empfang Interrupt ein, beim Senden aus
 #define LED_OFF RES_BIT(PORTD, OUT_D_LED)
 #define LED_ON SET_BIT(PORTD, OUT_D_LED)
 
+#define INTERRUPTOFFSET (1500u - 12u)
+
 #include "ORC_rx.h"
 
 /* EEMEM */ EEData eeprom;
@@ -106,195 +104,12 @@ State state;
 OutputData output;
 //volatile uint16_t Timer1ms;
 volatile uint16_t Timer25ms;
-volatile bool TimerInterrupt, ReceiverInterrupt;
+volatile bool ReceiverInterrupt;
 //uint8_t heartbeat;
-PPM pulses[16];
 Telemetrie telemetrieBuf[8];
 uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
 uint8_t resetCounter[3] __attribute__ ((section (".noinit")));
-
-void Channel_1_On(void){  SET_BIT(PORTD, OUT_D_CHANNEL1);}
-void Channel_2_On(void){  SET_BIT(PORTD, OUT_D_CHANNEL2);}
-void Channel_3_On(void){  SET_BIT(PORTC, OUT_C_CHANNEL3);}
-void Channel_4_On(void){  SET_BIT(PORTC, OUT_C_CHANNEL4);}
-void Channel_5_On(void){  SET_BIT(PORTC, OUT_C_CHANNEL5);}
-void Channel_6_On(void){  SET_BIT(PORTC, OUT_C_CHANNEL6);}
-void Channel_7_On(void){  SET_BIT(PORTC, OUT_C_CHANNEL7);}
-void Channel_8_On(void){  SET_BIT(PORTC, OUT_C_CHANNEL8);}
-
-//void
-//_delay_loop_1(uint8_t __count)
-//{
-//  __asm__ volatile (
-//    "1: dec %0" "\n\t"
-//    "brne 1b"
-//    : "=r" (__count)
-//    : "0" (__count)
-//  );
-//}
-
-//extern void Channel_1_Off(void);
-//
-//void clearOut(uint8_t i)
-//{
-//  __asm__ __volatile__ (
-//      "ldi     R31,hi8(%0)\n\t"
-//      "ldi     R30,lo8(%0)\n\t"
-//      "add     %1,%1\n\t"
-//      "add     r30,%1\n\t"
-//      "ijmp\n\t"
-//      :
-//      : "i" _SFR_MEM_ADDR((Channel_1_Off)),
-//        "r" (i)
-//      );
-//}
-
-void Channel_1_Off(void){ RES_BIT(PORTD, OUT_D_CHANNEL1);}
-void Channel_2_Off(void){ RES_BIT(PORTD, OUT_D_CHANNEL2);}
-void Channel_3_Off(void){ RES_BIT(PORTC, OUT_C_CHANNEL3);}
-void Channel_4_Off(void){ RES_BIT(PORTC, OUT_C_CHANNEL4);}
-void Channel_5_Off(void){ RES_BIT(PORTC, OUT_C_CHANNEL5);}
-void Channel_6_Off(void){ RES_BIT(PORTC, OUT_C_CHANNEL6);}
-void Channel_7_Off(void){ RES_BIT(PORTC, OUT_C_CHANNEL7);}
-void Channel_8_Off(void){ RES_BIT(PORTC, OUT_C_CHANNEL8);}
-//
-//void set_Channel_1(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL8);
-//  SET_BIT(PORTD, OUT_D_CHANNEL1);
-//}
-//
-//void set_Channel_1_Q(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL8);
-//  SET_BIT(PORTD, OUT_D_CHANNEL1);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_2(void){
-//  RES_BIT(PORTD, OUT_D_CHANNEL1);
-//  SET_BIT(PORTD, OUT_D_CHANNEL2);
-//}
-//
-//void set_Channel_2_Q(void){
-//  RES_BIT(PORTD, OUT_D_CHANNEL1);
-//  SET_BIT(PORTD, OUT_D_CHANNEL2);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_3(void){
-//  RES_BIT(PORTD, OUT_D_CHANNEL2);
-//  SET_BIT(PORTC, OUT_C_CHANNEL3);
-//}
-//
-//void set_Channel_3_Q(void){
-//  RES_BIT(PORTD, OUT_D_CHANNEL2);
-//  SET_BIT(PORTC, OUT_C_CHANNEL3);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_4(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL3);
-//  SET_BIT(PORTC, OUT_C_CHANNEL4);
-//}
-//
-//void set_Channel_4_Q(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL3);
-//  SET_BIT(PORTC, OUT_C_CHANNEL4);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_5(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL4);
-//  SET_BIT(PORTC, OUT_C_CHANNEL5);
-//}
-//
-//void set_Channel_5_Q(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL4);
-//  SET_BIT(PORTC, OUT_C_CHANNEL5);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_6(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL5);
-//  SET_BIT(PORTC, OUT_C_CHANNEL6);
-//}
-//
-//void set_Channel_6_Q(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL5);
-//  SET_BIT(PORTC, OUT_C_CHANNEL6);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_7(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL6);
-//  SET_BIT(PORTC, OUT_C_CHANNEL7);
-//}
-//
-//void set_Channel_7_Q(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL6);
-//  SET_BIT(PORTC, OUT_C_CHANNEL7);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_8(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL7);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_Off(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//void set_Channel_8_Q(void){
-//  RES_BIT(PORTC, OUT_C_CHANNEL7);
-//  RES_BIT(PORTC, OUT_C_CHANNEL8);
-//  SET_BIT(PORTC, OUT_C_CHANNEL8);
-//}
-//
-//FuncP_PROGMEM APM set_ChannelOut[] = {
-//  set_Channel_1,
-//  set_Channel_2,
-//  set_Channel_3,
-//  set_Channel_4,
-//  set_Channel_5,
-//  set_Channel_6,
-//  set_Channel_7,
-//  set_Channel_8,
-//  set_Channel_Off
-//};
-//
-//FuncP_PROGMEM APM set_ChannelOutQ[] = {
-//  set_Channel_1_Q,
-//  set_Channel_2_Q,
-//  set_Channel_3_Q,
-//  set_Channel_4_Q,
-//  set_Channel_5_Q,
-//  set_Channel_6_Q,
-//  set_Channel_7_Q,
-//  set_Channel_8_Q,
-//  set_Channel_Off
-//};
-
-FuncP_PROGMEM APM set_Channel_On[] = {
-  Channel_1_On,
-  Channel_2_On,
-  Channel_3_On,
-  Channel_4_On,
-  Channel_5_On,
-  Channel_6_On,
-  Channel_7_On,
-  Channel_8_On
-};
-
-FuncP_PROGMEM APM set_Channel_Off[] = {
-  Channel_1_Off,
-  Channel_2_Off,
-  Channel_3_Off,
-  Channel_4_Off,
-  Channel_5_Off,
-  Channel_6_Off,
-  Channel_7_Off,
-  Channel_8_Off
-};
+         // 0 -> External Reset, 1 -> Brown-out Reset, 2 -> Watchdog System Reset
 
 void get_mcusr(void) \
   __attribute__((naked)) \
@@ -307,339 +122,297 @@ void get_mcusr(void)
   wdt_disable();
 }
 
-ISR(TIMER2_COMPA_vect, ISR_NOBLOCK)
-{
-  TimerInterrupt = true;
-}
-
 ISR(INT0_vect, ISR_NOBLOCK)
 {
   ReceiverInterrupt = true;
+  state.RxTimer = TCNT2;              // Unterbrechung durch Timer1 kann 2 inc Fehler auslösen
 }
 
 /**********************************/
-FASTPPM ppm[8];             // Dieses Sortieren
 
-void test(void)                       // alle 20 ms
+void warte(uint8_t t)           // 17
 {
-  uint8_t i, y;
-  for(i = 0;i < 8;++i)
-  {
-    switch(i)
-    {
-      case 0:
-        ppm[i].maskPortC = ~0;
-        ppm[i].maskPortD = ~(1 << OUT_D_CHANNEL1);
-        break;
-      case 1:
-        ppm[i].maskPortC = ~0;
-        ppm[i].maskPortD = ~(1 << OUT_D_CHANNEL2);
-        break;
-      case 2:
-        ppm[i].maskPortC = ~(1 << OUT_C_CHANNEL3);
-        ppm[i].maskPortD = ~0;
-        break;
-      case 3:
-        ppm[i].maskPortC = ~(1 << OUT_C_CHANNEL4);
-        ppm[i].maskPortD = ~0;
-        break;
-      case 4:
-        ppm[i].maskPortC = ~(1 << OUT_C_CHANNEL5);
-        ppm[i].maskPortD = ~0;
-        break;
-      case 5:
-        ppm[i].maskPortC = ~(1 << OUT_C_CHANNEL6);
-        ppm[i].maskPortD = ~0;
-        break;
-      case 6:
-        ppm[i].maskPortC = ~(1 << OUT_C_CHANNEL7);
-        ppm[i].maskPortD = ~0;
-        break;
-      case 7:
-        ppm[i].maskPortC = ~(1 << OUT_C_CHANNEL8);
-        ppm[i].maskPortD = ~0;
-        break;
-    }
-    ppm[i].raw = output.chan_1us[i];
-  }
-  for(i = 0;i < 7;++i)            // qsort
-  {
-    for(y = i + 1;y < 8;++y)
-    {
-      if((ppm[i].raw > ppm[y].raw) || ((ppm[i].raw == 0) && (ppm[y].raw != 0)))
-      {
-        uint16_t temp = ppm[i].raw;
-        ppm[i].raw = ppm[y].raw;
-        ppm[y].raw = temp;
-        uint8_t ctemp = ppm[i].maskPortC;
-        ppm[i].maskPortC = ppm[y].maskPortC;
-        ppm[y].maskPortC = ctemp;
-        ctemp = ppm[i].maskPortD;
-        ppm[i].maskPortD = ppm[y].maskPortD;
-        ppm[y].maskPortD = ctemp;
-      }
-    }
-  }
-  for(i = 0;i < 7;++i)            // Gleiche zusammenfassen
-  {
-    if(ppm[i].raw == ppm[i + 1].raw)
-    {
-      ppm[i + 1].maskPortC &= ppm[i].maskPortC;
-      ppm[i + 1].maskPortD &= ppm[i].maskPortD;
-      ppm[i].raw = 0;
-    }
-    ppm[i].nextdelay = ppm[i + 1].raw - ppm[i].raw;
-    if(ppm[i].nextdelay > 10)
-      ppm[i].nextdelay = 0;
-  }
-  ppm[7].nextdelay = 0;
-  for(i = 0;i < 7;++i)            // Rest dahinter, herschieben
-  {
-    if(ppm[i].raw == 0)
-    {
-      for(y = i + 1;y < 8;++y)
-      {
-        if(ppm[y].raw == 0)
-          continue;
-        ppm[i].raw = ppm[y].raw;
-        ppm[i].maskPortC = ppm[y].maskPortC;
-        ppm[i].maskPortD = ppm[y].maskPortD;
-        ppm[y].raw = 0;
-        ppm[y].nextdelay = 0;
-        break;
-      }
-    }
-  }
-  output.p = ppm;
-  TCCR1B = (4 << WGM10);      // Timer aus
-  TCNT1 = 0;
-  OCR1A = (ppm[0].raw  + 1500u) * 8;
-  SET_BIT(TIFR1, OCF1A);
-  SET_BIT(TIMSK1, OCIE1A);          // Timer Interrupt Mask Register
-  TCCR1B = (4 << WGM10) | (1 << CS10);      // Timer an
-  PORTD |= (1 << OUT_D_CHANNEL1) | (1 << OUT_D_CHANNEL2);
-  NOP();
-  PORTC |= (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5)
-         | (1 << OUT_C_CHANNEL6) | (1 << OUT_C_CHANNEL7) | (1 << OUT_C_CHANNEL8);
+//  t -= 2;
+//  while(--t)
+//  {
+//    NOP();
+//    NOP();
+//    NOP();
+//    NOP();
+//  }
+//  NOP();
+
+  asm volatile(
+  "subi    r24, 0x02""\n\t"
+  "subi    r24, 0x01""\n\t"
+  "breq    .+10""\n\t"
+  "nop""\n\t"
+  "nop""\n\t"
+  "nop""\n\t"
+  "nop""\n\t"
+  "rjmp    .-14""\n\t"
+  "nop":::"r24"
+  );
+  return;                               // 4
 }
 
-uint8_t uuu[3*8];
+FASTPPM ppm;
 
-void inter(void)
+ISR(TIMER1_COMPA_vect)                  // pulse generation, resolution 1µs, Interrupt ist aus!
 {
-  uint8_t *pp = uuu;
-  uint8_t z;
+//  uint8_t x = OCR1AL + 0x30;
+//  while(TCNT1L < x);
+  asm volatile(
+  "lds     r25, 0x0088""\n\t"          // OCR1AL - 0xc0 (-> +40
+  "subi    r25, 0xC0""\n\t"
+  "lds     r24, 0x0084""\n\t"           // TCNT1L
+  "cp      r24, r25""\n\t"
+  "brcs    .-8""\n\t"
+  "lds     r25, 0x0084""\n\t"
+  "lds     r24, 0x0088""\n\t"
+  "subi    r25, 0x4a""\n\t"             // 3a
+  "sub     r25, r24""\n\t"
+  "andi    r25, 0x07""\n\t"
+  "ldi     r30, lo8(pm(L_%=))""\n\t"
+  "ldi     r31, hi8(pm(L_%=))""\n\t"
+  "add     r30, r25""\n\t"
+//  "ldi     r25, 0""\n\t"
+  "adc     r31, r1""\n\t"  //adc     r31, r25
+  "ijmp""\n\t"
+  "L_%=: nop""\n\t"
+  "nop""\n\t"
+  "nop""\n\t"
+  "nop""\n\t"
+  "nop""\n\t"
+  "nop""\n\t"
+  "nop":::"r24","r25","r30","r31");
 
-  for(z = 0;z < 8;++z)
-  {
-    *pp++ &= PORTD;
-    *pp++ &= PORTC;
-  }
-  z = 8;
-  pp = uuu;
+  uint8_t c = TCNT1L - OCR1AL;
 
-  while(1)
-  {
-    do
-    {
-      PORTD = *pp++;
-      PORTC = *pp++;
-    }
-    while(!(*(pp++ - 1) & 0xc0));     // sieht heiß aus
-    uint8_t waittemp = *(pp - 1);
-    if(waittemp > 20)
-      break;
-    if(waittemp == 1)
-      continue;
-    do
-    {
-      --waittemp;
-      NOP();
-      NOP();
-    }
-    while(waittemp);
-  }
-  // 01 1µs warten
-  // 10 2µs warten
-  // 11 3-20µs warten
-
-/* Abstand 1µs mit Tabelle kein Problem
- * Abstand 2µs mit Tabelle (32 Einträge)
- * Abstand 3µs schwierig weil wenig Zeit für neue Tabelle
- *
- * bei 20µs könnte Abbruch Interrupt reichen
- */
-
-  FASTPPM *p = output.p;
+  uint8_t *p = &ppm.toggleC[output.idx];
+  uint8_t c1,d1,c2,d2,c3,d3,c4,d4;
+  c1 = *p;
+  c2 = *(p + 1);                        // Hier wird auch eventuell Müll gelesen
+  c3 = *(p + 2);                        // macht aber nichts
+  c4 = *(p + 3);
+//  p = &ppm.toggleD[output.idx];
+  d1 = *(p + 4);
+  d2 = *(p + 5);
+  d3 = *(p + 6);
+  d4 = *(p + 7);
+//  p = &ppm.nextdelay[output.idx];
 
   while(1)
   {
-    PORTD &= p->maskPortD;
-    PORTC &= p->maskPortC;
-    uint8_t dif = p->nextdelay;
-    p++;
-    if(dif == 1)
-      continue;
-    if(!dif)
-      break;
-    while(dif > 1)
+    PIND = d1;
+    PINC = c1;
+    uint8_t dif = *(p + 8);
+    if(dif != 1)
     {
-      NOP();
-      NOP();
-      NOP();
-      NOP();
-      --dif;
+      if(!dif)
+        break;
+      if(dif == 2)
+      {
+        NOP();
+        NOP();
+        NOP();
+      }
+      else
+        warte(dif);
     }
+    NOP();
+    PIND = d2;
+    PINC = c2;
+    dif = *(p + 9);
+    if(dif != 1)
+    {
+      if(!dif)
+        break;
+      if(dif == 2)
+      {
+        NOP();
+        NOP();
+        NOP();
+      }
+      else
+        warte(dif);
+    }
+    NOP();
+    PIND = d3;
+    PINC = c3;
+    dif = *(p + 10);
+    if(dif != 1)
+    {
+      if(!dif)
+        break;
+      if(dif == 2)
+      {
+        NOP();
+        NOP();
+        NOP();
+      }
+      else
+        warte(dif);
+    }
+    NOP();
+    PIND = d4;
+    PINC = c4;
+    break;
   }
-  if(p->raw == 0)
+  bool receiverIntTemp = !state.RxTimer;      //   EIFR & (1 << INTF0);
+  sei();                          // Interrupt ein, jetzt kommen alle anderen Interrupts zum Zug
+  uint8_t i = output.idx;
+  if(receiverIntTemp && (state.RxTimer != 0))   // Empfängerinterrupt ist während cli() gekommen
+    --state.RxTimer;                            // Capturewert etwas korrigieren
+
+  while(*(p + 8) && (i < 3))                    // Ende suchen
+  {
+    ++p;
+    ++i;
+  }
+  ++i;
+  if((ppm.raw[i] == 0) || (i > 3))              // prüfen ob noch was kommt
+  {
     TIMSK1 &= ~(1<<OCIE1A);           // Interrupt aus
+    TCCR1B = 0;                         // Timer aus
+  }
   else
-    OCR1A = (p->raw  + 1500u) * 8;
-  output.p = p;
-}
-
-//ISR(TIMER1_COMPA_vect)                  //8MHz pulse generation
-//{
-//  register uint8_t i, channel;
-//
-//  channel = output[].chanPtr;                    // Kanal als lokaler Registerwert
-//  (*set_ChannelOutQ[channel])();
-//  while(delaykanal++)
-//  {
-//  delayµs(delay)
-//  (*set_ChannelOutQ[channel])();
-//  }
-//  neuer Wert einstellen
-//  sei();
-//
-//  OCR1A  = output.pulses2MHz[channel++];
-//
-//  if(output.pulses2MHz[channel] == 0)
-//  {
-//    TIMSK1 &= ~(1<<OCIE1A);                   // Interrupt aus
-//    OCR1A = 5000u * 8u;                       // 5ms Pause
-//    set_sleep_mode(SLEEP_MODE_STANDBY);       // Wenn Timer1 fertig
-//  }
-//  output.chanPtr = channel;
-////  heartbeat |= HEART_TIMER2Mhz;
-//}
-
-ISR(TIMER1_COMPA_vect)                  //8MHz pulse generation
-{
-//  TIMSK1 &= ~(1<<OCIE1A);                   // Interrupt aus
-
-  while(TCNT1L < 0x40);                 // springt 5
-  uint8_t c = TCNT1L;  
-  uint8_t act = output.act;
-  (*pulses[act].function)();
-
-  sei();
+  {
+    OCR1A = ppm.raw[i];
+    output.idx = i;
+  }
 
   if(output.latenzMin > c)
     output.latenzMin = c;
   if(output.latenzMax < c)
     output.latenzMax = c;
 
-//  uint8_t nextFree = output.nextFree;
-//  uint8_t temp_chan;
-//  if((temp_chan = searchChan()))
-//  {
-//    --temp_chan;
-//    pulses[nextFree].function = set_Channel_On[temp_chan];
-//    pulses[nextFree].timer = 200 * 8;
-//    ++nextFree;
-//    nextFree &= 0xf;
-//    pulses[nextFree].function = set_Channel_Off[temp_chan];
-//    pulses[nextFree].timer = (output.chan_1us[temp_chan] + 1500u) * 8 ;
-//    ++nextFree;
-//    nextFree &= 0xf;
-//    output.chanFlag &= ~(1 << temp_chan);
-//  }
-  ++act;
-  act &= 0xf;
-  if(act == output.nextFree)
-    TIMSK1 &= ~(1<<OCIE1A);                   // Interrupt aus
-  else
-    OCR1A = pulses[act].timer;
-  output.act = act;
   static uint8_t tes;
   if(TCNT1L > tes)
     tes = TCNT1L;
-
 }
 
-void setupPulses(uint8_t chan)              // Pulse in Warteschlange einfügen
+void setupPulses(bool highGroup)
 {
-  if(output.timer[chan] > 10)                   // Ausgänge mit minimal 10ms Abstand
+  uint8_t i, y;
+
+  if(TIMSK1 & (1<<OCIE1A))                // läuft noch
+    return;
+
+  uint8_t Cflag;
+  uint8_t Dflag;
+
+  if(!highGroup)
   {
-    uint8_t nextFree = output.nextFree;
-    pulses[nextFree].function = (void (*)())pgm_read_word(&set_Channel_On[chan]);
-    pulses[nextFree].timer = 200;             // ca. 200 Befehle Abstand für Interrupts (25us)
-    ++nextFree;
-    nextFree &= 0xf;
-    pulses[nextFree].function = (void (*)())pgm_read_word(&set_Channel_Off[chan]);
-    pulses[nextFree].timer = (output.chan_1us[chan] + 1500u) * 8 ;
-    ++nextFree;
-    nextFree &= 0xf;
-    output.nextFree = nextFree;       // gefahrlos da atomic
-
-    if(!(TIMSK1 & (1<<OCIE1A)))        // Ist doch schon aus
-    {
-      TCNT1 = 0;
-      OCR1A = pulses[output.act].timer;
-      SET_BIT(TIFR1, OCF1A);
-      SET_BIT(TIMSK1, OCIE1A);          // Timer Interrupt Mask Register
-    }
-    output.timer[chan] = 0;
+    Cflag = (output.portCflg & ((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2)
+        | (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4)))
+        | ~((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2) | (1 << OUT_C_CHANNEL3)   // Alle Nichtausgänge auf C setzen
+        | (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6));
+    Dflag = (uint8_t)~((1 << OUT_D_LED) | (1 << OUT_D_ANT1) | (1 << OUT_D_ANT2)   // Alle Nichtausgänge (Eingänge) auf D setzen
+        | (1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8));
+    ppm.toggleC[0] = (1 << OUT_C_CHANNEL1) & Cflag;
+    ppm.toggleC[1] = (1 << OUT_C_CHANNEL2) & Cflag;
+    ppm.toggleC[2] = (1 << OUT_C_CHANNEL3) & Cflag;
+    ppm.toggleC[3] = (1 << OUT_C_CHANNEL4) & Cflag;
+    ppm.toggleD[0] = 0;
+    ppm.toggleD[1] = 0;
+    output.pulsesOffset = eeprom.outputOffset;         // Versatz zwischen den Gruppen
+    output.pulsesTimer = 0;
   }
-//  output.chanFlag &= ~(1 << chan);
-}
+  else
+  {
+    Cflag = (output.portCflg & ((1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6)))
+        | ~((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2) | (1 << OUT_C_CHANNEL3)
+        | (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6));
+    Dflag = (output.portDflg & ((1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8)))
+        | ~((1 << OUT_D_LED) | (1 << OUT_D_ANT1) | (1 << OUT_D_ANT2)
+        | (1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8));
+    ppm.toggleC[0] = (1 << OUT_C_CHANNEL5) & Cflag;
+    ppm.toggleC[1] = (1 << OUT_C_CHANNEL6) & Cflag;
+    ppm.toggleC[2] = 0;
+    ppm.toggleC[3] = 0;
+    ppm.toggleD[0] = (1 << OUT_D_CHANNEL7) & Dflag;
+    ppm.toggleD[1] = (1 << OUT_D_CHANNEL8) & Dflag;
 
-//void setupPulsesPPM_quad(void)
-//{
-//  if(!(TIFR1 & (1<<OCF1A)))
-//  {
-//    return;               // Noch gar nicht fertig
-//  }
-//
-//  OCR1A = 500 * 8;        // in 500us beginnen
-//  TCNT1 = 0;
-//
-////  sei();
-//  uint8_t j=0;
-//  output.pulses2MHz[j++]=(uint16_t)300 * 8;
-//  for(uint8_t i=0;i<8;i++)
-//  {
-//    output.pulses2MHz[j++] = (output.chan_1us[i] - 300 + 1500u) * 8;
-//    output.pulses2MHz[j++]=(uint16_t)300 * 8;
-//  }
-//  output.pulses2MHz[j]=0;
-//  output.chanPtr = 0;
-//  TIFR1 &= ~(1<<OCF1A);
-//  TIMSK1 |= (1<<OCIE1A);      // Timer Interrupt Mask Register
-////  set_sleep_mode(SLEEP_MODE_IDLE);
-//}
-//
-//void setupPulsesPPM()
-//{
-//  if(!(TIFR1 & (1<<OCF1A)))
-//  {
-//    return;               // Noch gar nicht fertig
-//  }
-//
-//  OCR1A = 500 * 8;        // in 500us beginnen (je nach Kanal)
-//  TCNT1 = 0;
-//
-////  sei();
-//  uint8_t j=0;
-//  for(uint8_t i = 0;i < 8;i++)
-//    output.pulses2MHz[j++] = (output.chan_1us[i] + 1500u) * 8;
-//  output.pulses2MHz[j] = 0;
-//  output.chanPtr = 0;
-//  TIFR1 &= ~(1<<OCF1A);
-//  TIMSK1 |= (1<<OCIE1A);          // Timer Interrupt Mask Register
-////  set_sleep_mode(SLEEP_MODE_IDLE);
-//}
+  }
+  ppm.toggleD[2] = 0;
+  ppm.toggleD[3] = 0;
+
+  for(i = 0;i < 4;++i)
+  {
+    uint16_t temp;
+    if(highGroup)
+      temp = output.chan_1us[i + 4];
+    else
+      temp = output.chan_1us[i];
+    ppm.raw[i] = (temp + INTERRUPTOFFSET) * 8;   // Mit Pulslänge füllen
+  }
+  for(i = 0;i < 3;++i)            // qsort
+  {
+    for(y = i + 1;y < 4;++y)
+    {
+      if((ppm.raw[i] > ppm.raw[y]) || ((ppm.raw[i] == 0) && (ppm.raw[y] != 0)))
+      {
+        uint16_t temp = ppm.raw[i];
+        ppm.raw[i] = ppm.raw[y];
+        ppm.raw[y] = temp;
+        uint8_t ctemp = ppm.toggleC[i];
+        ppm.toggleC[i] = ppm.toggleC[y];
+        ppm.toggleC[y] = ctemp;
+        ctemp = ppm.toggleD[i];
+        ppm.toggleD[i] = ppm.toggleD[y];
+        ppm.toggleD[y] = ctemp;
+      }
+    }
+  }
+  for(i = 0;i < 3;++i)            // Gleiche zusammenfassen
+  {
+    uint16_t delaytemp = (ppm.raw[i + 1] - ppm.raw[i]) / 8;
+    if(delaytemp == 0)
+    {
+      ppm.toggleC[i + 1] |= ppm.toggleC[i];
+      ppm.toggleD[i + 1] |= ppm.toggleD[i];
+      ppm.raw[i] = 0;             // ungültig markieren
+    }
+    if(delaytemp > 20)     // kürzeste Zeit zwischen 2 Interrupts
+      ppm.nextdelay[i] = 0;
+    else
+      ppm.nextdelay[i] = (uint8_t)delaytemp;
+  }
+  ppm.nextdelay[3] = 0;
+  for(i = 0;i < 3;++i)            // Rest dahinter, herschieben
+  {
+    if(ppm.raw[i] == 0)           // Platz ist leer
+    {
+      for(y = i + 1;y < 4;++y)
+      {
+        if(ppm.raw[y] == 0)
+          continue;
+        ppm.raw[i] = ppm.raw[y];
+        ppm.toggleC[i] = ppm.toggleC[y];
+        ppm.toggleD[i] = ppm.toggleD[y];
+        ppm.nextdelay[i] = ppm.nextdelay[y];
+        ppm.raw[y] = 0;
+        ppm.nextdelay[y] = 0;
+        break;
+      }
+    }
+  }
+  output.idx = 0;
+  output.port = false;
+  TCCR1B = 0;      // Timer aus
+  TCNT1 = 0;
+  OCR1A = ppm.raw[0];
+  //SET_BIT(TIFR1, OCF1A);
+  TIFR1 = (1 << OCF1A);
+  SET_BIT(TIMSK1, OCIE1A);          // Timer Interrupt Mask Register
+  TCCR1B = (1 << CS10);      // Timer an 8MHz
+
+//  NOP();
+  PORTD |= Dflag;
+  PORTC = Cflag;
+//  NOP();                // ***
+}
 
 uint8_t SPI_MasterTransmit(uint8_t cData)
 {
@@ -689,27 +462,36 @@ void cc2500_Off(void)
   while(!(PINB & (1<<OUT_B_SPI_SS)));
 }
 
-void setNextChan(void)                // Kanal schreiben
+//void setNextChan(void)                // Kanal schreiben
+//{
+//  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
+//  while(tempChan > MAXHOPPCHAN)
+//    tempChan -= (MAXHOPPCHAN + 1);
+//  state.actChan = tempChan;
+//  cc2500WriteReg(CC2500_CHANNR, tempChan);
+//}
+
+//void setNextChanCheckIdleFail(void)                // Kanal schreiben
+//{
+//  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
+//  tempChan += eeprom.bind.step * 2 + 1;
+//  tempChan += eeprom.bind.step * 2 + 1;
+//  while(tempChan > MAXHOPPCHAN)
+//    tempChan -= (MAXHOPPCHAN + 1);
+//  state.actChan = tempChan;
+//  cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
+//}
+
+void setRx(void)
 {
-  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
-  while(tempChan > MAXHOPPCHAN)
-    tempChan -= (MAXHOPPCHAN + 1);
-  state.actChan = tempChan;
-  cc2500WriteReg(CC2500_CHANNR, tempChan);
+  SET_BIT(PORTB, OUT_B_PRE);
+  cc2500CommandStrobe(CC2500_SRX);       // Emfänger ein
+//  SET_BIT(EIFR, INTF0);
+//  SET_BIT(EIMSK, INT0);                    // INT0 ein
+//  Timercapt = 0;
 }
 
-void setNextChanCheckIdleFail(void)                // Kanal schreiben
-{
-  uint16_t tempChan = state.actChan + eeprom.bind.step * 2 + 1;
-  tempChan += eeprom.bind.step * 2 + 1;
-  tempChan += eeprom.bind.step * 2 + 1;
-  while(tempChan > MAXHOPPCHAN)
-    tempChan -= (MAXHOPPCHAN + 1);
-  state.actChan = tempChan;
-  cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
-}
-
-void setNextChanCheckIdle(uint8_t c)                // Kanal schreiben
+void setNextChanGoRx(uint8_t c)                // Kanal schreiben und auf Empfang
 {
   if(PIND & (1<<INP_D_CC2500_GDO0))
     SET_BIT(state.ledError, L_TX_NOT_READY);
@@ -720,15 +502,7 @@ void setNextChanCheckIdle(uint8_t c)                // Kanal schreiben
     tempChan -= (MAXHOPPCHAN + 1);
   state.actChan = tempChan;
   cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
-}
-
-void setRx(void)                // Kanal schreiben
-{
-  SET_BIT(PORTB, OUT_B_PRE);
-  cc2500CommandStrobe(CC2500_SRX);       // Kalibrieren
-//  SET_BIT(EIFR, INTF0);
-//  SET_BIT(EIMSK, INT0);                    // INT0 ein
-//  Timercapt = 0;
+  setRx();
 }
 
 /*
@@ -787,8 +561,6 @@ void setFrequencyOffset(int8_t freqoff, bool lim)
 //  cc2500_Off();
   if(freqoff)
   {
-//    fsctrl = cc2500ReadReg(CC2500_FSCTRL0);
-//    freq = freqoff + fsctrl;
     if(lim)
     {
       if(freqoff > 1)
@@ -796,6 +568,8 @@ void setFrequencyOffset(int8_t freqoff, bool lim)
       else if(freqoff < -1)
         freqoff = -1;
     }
+//    fsctrl = cc2500ReadReg(CC2500_FSCTRL0);
+//    freq = freqoff + fsctrl;
     freq = freqoff + state.freqOffset;
     if(freq > 0x7f)
       freq = 0x7f;
@@ -806,7 +580,7 @@ void setFrequencyOffset(int8_t freqoff, bool lim)
   }
 }
 
-prog_int8_t APM freq[] = {0, -120, +120, +40, -40, -80, 80};
+prog_int8_t APM freq[] = {0, 40, -40, 120, -120, 80, -80};
 
 void setNewRxFrequ(void)
 {
@@ -822,94 +596,31 @@ void setReceiveError(void)
   setAnt(state.actAnt);               // Antenne wechseln
   if(state.errorCount < 0xff)
     ++state.errorCount;
-  if(state.errorSum < 0xffff)
-    ++state.errorSum;                 // max über 3h Totalausfall
+//  if(state.errorSum < 0xffff)
+  ++state.errorSum;                 // max über 100 Tage Totalausfall
+  if(state.led)
+    LED_OFF;
 }
-
-/*
-uint8_t min, max, minc, maxc, c;
-uint16_t minus, plus;
-
-void clearCount(void)
-{
-  c = TCNT2;
-  TCNT2 = CYCLETIME - 0x20;                          // Timer kommt später
-//  TimerInterrupt = false;
-  max = maxc = 0;
-  min = minc = 0xff;
-}
-
-uint8_t capt[0x40];
-uint8_t poi;
-
-void pllCount(void)
-{
-  if(max < TCNT2)
-    max = TCNT2;
-  if(min > TCNT2)
-    min = TCNT2;
-  if(maxc < Timercapt)
-    maxc = Timercapt;
-  if(minc > Timercapt)
-    minc = Timercapt;
-  if(poi < 0x40)
-  {
-    capt[poi] = Timercapt;
-    ++poi;
-//    poi &= 0x3f;
-  }
-
-
-  if(Timercapt > CYCLETIME - 0x40)
-  {
-    int8_t d = (CYCLETIME - 0x20) - Timercapt;
-    TCNT2 += d;
-    if(d < 0)
-    {
-      ++minus;
-      if(Pll > -14)
-        --Pll;
-    }
-    else if(d > 0)
-    {
-      ++plus;
-      if(Pll < 14)
-        ++Pll;
-    }
-
-
-    if(Timercapt > CYCLETIME - 0x20)
-    {
-      --TCNT2;
-      ++minus;
-      if(Pll > -14)
-        --Pll;
-    }
-    else
-    {
-      ++TCNT2;
-      ++plus;
-      if(Pll < 14)
-        ++Pll;
-    }
-  }
-  else
-    NOP();
-  Timercapt = 0;
-}  */
 
 bool readBindData(void)
 {
   MessageBind mes;
 
-  cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes));
-  if(mes.crcOk)
+  if(cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes)) && (mes.crcOk))
   {
     eeprom.bind.id = mes.data.id;
     eeprom.bind.step = mes.data.step;
-    eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
+    if(eeprom.pulsesDelay == 0xff)
+      eeprom.pulsesDelay = 15;                  // Default mindestens 15 ms Delay
+    if(eeprom.outputOffset == 0xff)
+    {
+      eeprom.outputOffset = 10;                 // Default 10 ms Versatz
+      eeprom_write_block(&eeprom, 0 ,sizeof(eeprom));
+    }
+    else
+      eeprom_write_block(&eeprom.bind, 0 ,sizeof(eeprom.bind));
     state.bindmode = false;
-    while(1);                   //       reset
+    while(1);                   //       reset durch Watchdog
   }
   else
     return(false);
@@ -920,10 +631,42 @@ void getFailSafe(void)
   uint8_t i;
   for(i = 0;i < MAXCHAN;++i)
   {
-    int16_t temp = eeprom.failSafe[i].failSafePos;
-    if(temp & 0x400)
-      temp  |= 0xf800;
-    output.chan_1us[i] = temp;
+    if(!eeprom.failSafe[i].failSafeMode)
+    {
+      uint16_t t = eeprom.failSafe[i].failSafePos;
+      if(t & 0x400)                 // Auf zulässige Werte begrenzen
+        t |= 0xf800;
+      else
+        t &= 0x3ff;
+      output.chan_1us[i] = t;
+      switch(i)
+      {
+      case 0:
+        output.portCflg |= (1 << OUT_C_CHANNEL1);
+        break;
+      case 1:
+        output.portCflg |= (1 << OUT_C_CHANNEL2);
+        break;
+      case 2:
+        output.portCflg |= (1 << OUT_C_CHANNEL3);
+        break;
+      case 3:
+        output.portCflg |= (1 << OUT_C_CHANNEL4);
+        break;
+      case 4:
+        output.portCflg |= (1 << OUT_C_CHANNEL5);
+        break;
+      case 5:
+        output.portCflg |= (1 << OUT_C_CHANNEL6);
+        break;
+      case 6:
+        output.portDflg |= (1 << OUT_D_CHANNEL7);
+        break;
+      case 7:
+        output.portDflg |= (1 << OUT_D_CHANNEL8);
+        break;
+      }
+    }
   }
 }
 
@@ -931,101 +674,141 @@ void setFailSafe(void)
 {
   uint8_t i;
   for(i = 0;i < MAXCHAN;++i)
-    eeprom.failSafe[i].failSafePos = output.chan_1us[i];
+    eeprom.failSafe[i].failSafePos = output.chan_1us[i];        // Alle Positionen übernehmen
   eeprom_write_block(&eeprom.failSafe,(uint8_t *)((int)&eeprom.failSafe - (int)&eeprom) ,sizeof(eeprom.failSafe));
   SET_BIT(state.ledError, L_SET_FAILSAVE);
 }
 
-void tstFailSafe(void)
+void tstFailSafe(void)                  // Alle 20 ms
 {
   uint8_t i;
+
+  for(i = 0;i < 2;++i)
+  {
+    if(state.groupTimer[i] < 0xff)
+      ++state.groupTimer[i];
+    if(state.groupTimer[i] == 2)
+      if(state.frameLost < 0xffff)
+        ++state.frameLost;
+  }
+
   for(i = 0;i < MAXCHAN;++i)
   {
-    if(eeprom.failSafe[i].failSafeMode)
+    if((!eeprom.failSafe[i].failSafeMode)
+      && (state.groupTimer[i / 4] > eeprom.failSafe[i].failSafeDelay + 1)
+      && (eeprom.failSafe[i].failSafeDelay != 0xff))      // macht keinen Sinn
     {
-      if((eeprom.failSafe[i].failSafeDelay != 0xff) && (output.timeOut[i] > eeprom.failSafe[i].failSafeDelay + 1))
-      {
-        int16_t temp = eeprom.failSafe[i].failSafePos;
-        if(temp & 0x400)
-          temp  |= 0xf800;
-        output.chan_1us[i] = temp;
-      }
-      if(output.timeOut[i] > 1)
-        setupPulses(i);
-      if(output.timeOut[i] < 0xff)
-        ++output.timeOut[i];
+      uint16_t t = eeprom.failSafe[i].failSafePos;
+      if(t & 0x400)                 // Auf zulässige Werte begrenzen
+        t |= 0xf800;
+      else
+        t &= 0x3ff;
+      output.chan_1us[i] = t;
     }
   }
 }
 
-void setOutputTimer(uint8_t t)
-{
-  uint8_t i;
-  uint16_t w;
-  for(i = 0;i < MAXCHAN;++i)
-  {
-    w = output.timer[i] + t;
-    if(w > 0xff)
-      output.timer[i] = 0xff;
-    else
-      output.timer[i] = w;
-  }
-}
-void setChan(uint8_t i, uint16_t val)
-{
-  if(val & 0x400)
-    val |= 0xf800;
-  output.chan_1us[i] = val;
-  output.timeOut[i] = 0;
-  setupPulses(i);
-}
+//void setOutputTimer(uint8_t t)
+//{
+//  uint8_t i;
+//  uint16_t w;
+//  for(i = 0;i < MAXCHAN;++i)
+//  {
+//    w = output.timer[i] + t;
+//    if(w > 0xff)
+//      output.timer[i] = 0xff;
+//    else
+//      output.timer[i] = w;
+//  }
+//}
+
+volatile uint16_t xy;
 
 void copyChan(Message *mes, uint8_t x)
 {
-  setChan(x++, mes->data.channel.chan1_1us);
-  setChan(x++, mes->data.channel.chan2_1us);
-  setChan(x++, mes->data.channel.chan3_1us);
-  setChan(x, mes->data.channel.chan4_1us);
+  uint8_t i;
+  uint16_t high = mes->data.channel.chan_1ushigh;
+
+  i = 3;
+  do
+  {
+    uint8_t f = (uint8_t)high & 7;
+    uint16_t val = (f << 8) + mes->data.channel.chan_1uslow[i];
+    if(val & 0x400)
+      val |= 0xf800;              // erweitern auf 16 Bit
+    output.chan_1us[i + x] = val;
+    high >>= 3;
+  }
+  while(i-- > 0);
 }
 
 bool readData(void)
 {
   Message mes;
 
-  cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes));
-  if(mes.crcOk)          // CRC ok
+  if(cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes)) && (mes.crcOk))          // CRC ok
   {
     if(mes.data.command.rts)
-      state.RxCount = 7;
-    else if(state.RxCount >= 7)
-      state.RxCount = 0;
-
-    uint8_t type = mes.data.channel.type;
-    if(type != 0x7)
     {
-      if(!eeprom.chanOff)
-        type -= 2;                  // Kanäle 8 - 16 verwenden
-      if(type == 0)
+      if(state.RxCount != 7)
       {
-        copyChan(&mes, 0);
-      }
-      else if(type == 1)
-      {
-        copyChan(&mes, 4);
+        state.syncError = true;
+        state.RxCount = 7;
       }
     }
-    else
+    else if(state.RxCount >= 7)
+      state.RxCount = 6;
+
+    uint8_t type = mes.data.channel.type;
+    if(type <= 4)                               // Kanaldaten
+    {
+      if(!eeprom.chanOff == (type & 2))              // Kanäle 8 - 16 verwenden
+      {
+        if(!(type & 1))
+        {
+          copyChan(&mes, 0);
+          state.groupTimer[0] = 0;
+          output.portCflg |= (1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2)
+              | (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4);
+        }
+        else if(type & 1)
+        {
+          copyChan(&mes, 4);
+          state.groupTimer[1] = 0;
+          output.portCflg |= (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6);
+          output.portDflg = (1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8);
+
+        }
+      }
+      if((type == 4) && (output.pulsesTimer > eeprom.pulsesDelay))
+        setupPulses(false);
+    }
+    else if(type == 5)  // eeprom
+    {
+      if((mes.data.MemoryWord.tar == 0)
+          && ((int)mes.data.MemoryWord.adr >= sizeof(BindData))
+          && (mes.data.MemoryWord.des == 1))            // Adresse auf 1
+        if(mes.data.MemoryWord.wr)                      // schreiben
+        {
+          if(mes.data.MemoryWord.size)
+            eeprom_write_word(mes.data.MemoryWord.adr, mes.data.MemoryWord.data);
+          else
+            eeprom_write_byte(mes.data.MemoryByte.adr, mes.data.MemoryByte.data);
+          eeprom_read_block(&eeprom, 0, sizeof(eeprom));    // Daten wieder auslesen
+        }
+    }
+    else if(type == 7)
     {
       if(mes.data.command.command == 1)     // FailSafe Position setzen
         setFailSafe();
-      else
-        RES_BIT(state.ledError, L_SET_FAILSAVE);
     }
-    if((mes.rssi > 50) || (mes.lqi < 5))   // Empfang schlecht
+    if(/*(mes.rssi > 50) ||*/ (mes.lqi < 5))   // Empfang schlecht
       setAnt(state.actAnt);               // Antenne wechseln
-    if(state.okSum < 0xffff)
-      ++state.okSum;
+//    if(state.okSum < 0xffffffff)
+    ++state.okSum;                        // Hält bald 100 Tage
     state.errorCount = 0;
+    if(state.led)
+      LED_ON;
     return(true);
   }
   else
@@ -1035,8 +818,10 @@ bool readData(void)
 uint8_t read, write;
 void writeTelemetrie(uint16_t sensor, uint16_t value)
 {
-  telemetrieBuf[write].sensor = sensor;
-  telemetrieBuf[write].data = value;
+  telemetrieBuf[write].Sensor.sensor = sensor;
+  telemetrieBuf[write].Sensor.data = value;
+  telemetrieBuf[write].Sensor.type = 1;
+  telemetrieBuf[write].Sensor.source = 1;
   ++write;
   write &= 0x7;
 }
@@ -1044,27 +829,42 @@ void writeTelemetrie(uint16_t sensor, uint16_t value)
 void sendTelemetrie(void)  // wird etwas später gesendet, + 0,5ms
 {
   Telemetrie mes;
-  static uint8_t count;
 
 //  setNextChanCheckIdle();
-  if(!eeprom.txEnable)
-    return;
-  cc2500CommandStrobe(CC2500_SFTX);
+  RES_BIT(EIMSK, INT0);                    // INT0 aus
+
+  cc2500CommandStrobe(CC2500_SFTX);             // Sendepuffer leeren
   if(read != write)
   {
-    mes.sensor = telemetrieBuf[read].sensor;
-    mes.data = telemetrieBuf[read].data;
+    mes.Unspec.dataB1 = telemetrieBuf[read].Unspec.dataB1;
+    mes.Unspec.dataB2 = telemetrieBuf[read].Unspec.dataB2;
+    mes.Unspec.dataB3 = telemetrieBuf[read].Unspec.dataB3;
+    mes.Unspec.dataB4 = telemetrieBuf[read].Unspec.dataB4;
+    mes.Unspec.dataB5 = telemetrieBuf[read].Unspec.dataB5;
+    mes.Unspec.dataB6 = telemetrieBuf[read].Unspec.dataB6;
     ++read;
     read &= 0x7;
   }
   else                                        // Status senden
   {
-    mes.sensor = 0;
-    mes.data = state.scanCount | count++ * 0x100;
+    mes.StatusRx.type = 1;
+    mes.StatusRx.scanCount = state.scanCount;
+    if(state.errorSum >> 16)
+      mes.StatusRx.errorSum = 0xffff;
+    else
+      mes.StatusRx.errorSum = state.errorSum;
+    mes.StatusRx.frameLost = state.frameLost;
   }
-  cc2500WriteFIFOBlock((uint8_t *)&mes, sizeof(mes));
-  RES_BIT(PORTB, OUT_B_PRE);
-  cc2500CommandStrobe(CC2500_STX);            // Enable TX
+  if(eeprom.txDisable)
+  {
+    cc2500CommandStrobe(CC2500_SCAL);
+  }
+  else
+  {
+    cc2500WriteFIFOBlock((uint8_t *)&mes, sizeof(mes));
+    RES_BIT(PORTB, OUT_B_PRE);
+    cc2500CommandStrobe(CC2500_STX);            // Enable TX
+  }
 }
 
 bool processData(uint8_t data_len)                // Nachsehen ob was da
@@ -1142,22 +942,52 @@ void set_led(void)
       if(!(led_count & 0xf))
         timer_alt += (1000 / 4 / 25 * 3);                    // Pause
     }
+    if(!(led_count & 0xf) && !state.ledError)
+      state.led = true;
   }
-  if(!(led_count & 0xf) && !state.ledError)
+  if(state.led && state.ledError)
   {
-    if(state.led)
-      LED_ON;
-    else
-      LED_OFF;
+    state.led = false;
+    LED_OFF;
   }
-  state.led = true;
 }
 
 void setTimer(uint8_t value)
 {
   OCR2A = value;
-//  TCNT2 = 0;
-  TimerInterrupt = false;
+//  SET_BIT(TIFR2, OCF2A);
+  TIFR2 = (1 << OCF2A);
+}
+
+void adjTimer(void)
+{
+  uint8_t temp = -state.RxTimer;
+  TCNT2 += temp;            // Timer initialisieren
+
+  int8_t te = state.RxTimer;
+  if(te > state.max)
+    state.max = te;
+  if(te < state.min)
+    state.min = te;
+  if(checkKey())
+  {
+    state.min = 0x7f;
+    state.max = -0x80;
+  }
+
+  state.RxTimer = 0;
+//  if(state.RxTimer > CHANTIME)           // negativ
+//  {
+//    if(state.pll > -128)
+//      --state.pll;
+//    else
+//      NOP();
+//  }
+//  else
+//    if(state.pll < 127)
+//      ++state.pll;
+//    else
+//      NOP();
 }
 
 void setBindMode(void)
@@ -1187,20 +1017,21 @@ void rxState(void)
     }
     else
     {
-//      setPaketsizeReceive();
       cc2500WriteReg(CC2500_PKTLEN, sizeof(MessageData));
       state.bindmode = false;
     }
-    calibrateOn();
+    calibrateSlow();                   // einmal Kalibrieren beim Wechsel auf RX
     setFreeChanRx();                 // Kanal einstellen und Empfang ein
     counter = 0;
     state.errorCount = 1;
     rxstate = checkRSSI;
     setTimer(CHANTIME);
     break;
-  case checkRSSI:                   // Kanal frei?
-    if((counter > 100) || checkchanFree() ||   // lesen von RSSI und Status kann gleich sein
-        (PIND & (1 << INP_D_CC2500_GDO0)) || (cc2500GetState() != CC2500_STATE_RX) || ReceiverInterrupt)
+  case checkRSSI:                              // Kanal frei?
+    if((counter > 100) || checkchanFree()      // lesen von RSSI und Status kann gleich sein
+        || (PIND & (1 << INP_D_CC2500_GDO0))
+        || (cc2500GetState() != CC2500_STATE_RX)
+        || ReceiverInterrupt)
     {
       counter = 0;
       rxstate = waitForData;
@@ -1211,59 +1042,64 @@ void rxState(void)
       cc2500Idle();
       setFreeChanRx();                 // Neuer Kanal einstellen und Empfang ein
       ++counter;
-      TimerInterrupt = false;
+//      SET_BIT(TIFR2, OCF2A);
+      TIFR2 = (1 << OCF2A);
     }
     break;
   case waitForData:                 // Eine Sekunde auf Empfang warten
     if(PIND & (1 << INP_D_CC2500_GDO0))        // Einsprung über Timerinterrupt und Empfang läuft gerade
     {
-      TimerInterrupt = false;
+//      SET_BIT(TIFR2, OCF2A);
+      TIFR2 = (1 << OCF2A);
       return;
     }
     cc2500status = SPI_MasterTransmit(CC2500_SNOP | CC2500_READ_SINGLE);
-    if(cc2500status != CC2500_STATE_RX)
+    if((cc2500status & CC2500_STATUS_STATE_BM) != CC2500_STATE_RX)  // nicht mehr auf Empfang
     {
       if(ReceiverInterrupt)
       {
-        if(cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM)
+        if((data_len = cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM))
         {                           // irgendwelche Daten da (Prüfsumme und Länge war ok!)
-          setNextChanCheckIdle(1);
-          calibrateOff();
+          calibrateFast();
           setFrequencyOffset(cc2500ReadStatusReg(CC2500_FREQEST), false);
-          setRx();
-          if(processData(cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM))            // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
+          setNextChanGoRx(1);    // Schnell wieder auf Empfang
+          if(processData(data_len))            // Empfangsregister auswerten, muss als erstes kommen, wegen Auswertung Telegramm
           {
-            TCNT2 = 0;
+            adjTimer();
             if(state.RxCount < 7)
-            {
-              rxstate = Main;
-//              state.synch = true;
-              setTimer(CHANTIME);
-            }
-            else                                        // Beim ersten Mal nicht senden!!
-            {
-              setNextChanCheckIdle(1);                  // Kanal überspringen
-              setRx();                                  // Auf Empfang
-            }
+              setTimer(CHANTIME + CHANTIME02 + 1);
+            else
+              setTimer(CHANTIME + TELETIME + 1 + CHANTIME02 + 1);           // Beim ersten Mal nicht senden!!
             state.RxCount = 0;
+//            if(state.RxTimer == (uint8_t)-CHANTIME02)           // Timersync hat nicht funktioniert
+//              setNextChanGoRx(1);    // Schnell wieder auf Empfang
+//            else
+//            {
+            state.syncError = false;
+            rxstate = Main;
             counter = 0;
+//            SET_BIT(TIFR2, OCF2A);
+            TIFR2 = (1 << OCF2A);
+//            }
           }
         }
         else
         {
-          setRx();
+          setNextChanGoRx(2);
+//          setRx();
         }
         ReceiverInterrupt = false;
       }
-      else
-      {
+      else                      // Timerinterrupt
+      {                         // eventuell nachschauen ob Syncword empfangen
         cc2500Idle();
         cc2500CommandStrobe(CC2500_SFRX);
         setRx();
-        TimerInterrupt = false;
+//        SET_BIT(TIFR2, OCF2A);
+        TIFR2 = (1 << OCF2A);
       }
     }
-    else
+    else                                // Noch auf Empfang
     {
       if(counter > MAXHOPPCHAN)
       {
@@ -1276,18 +1112,20 @@ void rxState(void)
       }
       else
         ++counter;
-      TimerInterrupt = false;
+//      SET_BIT(TIFR2, OCF2A);
+      TIFR2 = (1 << OCF2A);
     }
     break;
   case Main:                                    // Frequenz einstellen und Kalibrieren
-    if(state.errorCount > 10)       // 20 Telegramme nicht empfangen
+    if((state.errorCount > 20) && !ReceiverInterrupt)     // 20 Telegramme nicht empfangen
     {
-      setNextChanCheckIdleFail();                 // Kanal einstellen und Empfang ein
+      cc2500Idle();
+      state.actFreqIdx = 7;
+      setNewRxFrequ();                // Frequenz auf 0 verstellen
+      setNextChanGoRx(3);                 // Kanal einstellen und Empfang ein
       counter = 0;
       state.errorCount = 1;
       rxstate = waitForData;
-      state.actFreqIdx = 7;
-      setNewRxFrequ();                // Frequenz auf 0 verstellen
 //      state.synch = false;
       setTimer(CHANTIME2);
       if(state.scanCount < 0xff)
@@ -1297,60 +1135,71 @@ void rxState(void)
     {
       if(ReceiverInterrupt)
       {
+        ReceiverInterrupt = false;
         cc2500status = SPI_MasterTransmit(CC2500_FREQEST | CC2500_READ_BURST);
         frequ = SPI_MasterTransmit(CC2500_SNOP);
 
-        if(cc2500status != 0x10)
+        if((cc2500status & CC2500_STATUS_STATE_BM) != CC2500_STATE_RX)  // nicht mehr auf Empfang
         {
-          if((cc2500status & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
-            cc2500Idle();
-          if((data_len = cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM)
+          if((cc2500status & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)  // Auch nicht auf Idle
+            cc2500Idle();                                       // dann jetzt auf Idle
+          if((data_len = cc2500status & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM) // Daten da und es war Idle
               && ((cc2500status & CC2500_STATUS_STATE_BM) == CC2500_STATE_IDLE))
           {
-            setFrequencyOffset(frequ, true);
-            setNextChanCheckIdle(1);                      // wechselt auf Idle
+            if(state.errorCount > 3)
+              setFrequencyOffset(frequ, false);      // Obwohl noch nicht klar ist ob Daten gut sind!
+            else
+              setFrequencyOffset(frequ, true);      // Obwohl noch nicht klar ist ob Daten gut sind!
             if(state.RxCount < 7)                   // es kommt noch was
-              setRx();
+              setNextChanGoRx(1);                      // wechselt auf Rx
             if(processData(data_len))                // state.RxCount wird hier geändert
             {
-              TCNT2 = 0;
-              if(state.RxCount >= 7)
+              adjTimer();                           // Timer initialisieren
+              if(state.RxCount >= 7)                // als nächstes kommt Telemetrie
               {
-                calibrateOn();
- //               setPaketsizeSend();
+                calibrateSlow();
                 rxstate = TxOn;
                 state.RxCount = 0;
-                setTimer(TELETIME02);
-              }
+                setTimer(TELETIME02);   // in 0,6 ms bezogen auf Empfangsinterrupt Timer auslösen
+              }                                         // Es kommt dann nur Timerinterrupt weil Idle
               else
               {
                 ++state.RxCount;
-                setTimer(CHANTIME);
-              }
+                setTimer(CHANTIME + CHANTIME02 + 1);
+              }		
+//              SET_BIT(TIFR2, OCF2A);
+              TIFR2 = (1 << OCF2A);
             }
-            else
-              setTimer(CHANTIME15);
+//            else                              // Daten waren Schrott     erst im Timerinterupt
+//              setReceiveError();              // Antenne wechseln
+              // hier ++state.RxCount ??
           }
           else
-          {
-            cc2500CommandStrobe(CC2500_SFRX);
-            setRx();
+          {  // keine Daten oder kein Idle beim Interrupt
+            cc2500CommandStrobe(CC2500_SFRX);           // Empfänger leeren
+            setRx();                                    // und nochmal versuchen
           }
         }
-        ReceiverInterrupt = false;
       }
-      else
-      {
-        cc2500CommandStrobe(CC2500_SIDLE);
-        setReceiveError();
-        setTimer(CHANTIME2);
-        state.RxCount += 2;
-        if(state.RxCount > 7)
-          state.RxCount -= 7 + 1;
-        setNextChanCheckIdle(2);                      // wechselt auf Idle
-//        setNextChanCheckIdle();                      // wechselt auf Idle
-        setRx();
-        TimerInterrupt = false;
+      else                              // Timerinterrupt
+      {                                 // eventuell nachschauen ob Syncword empfangen
+//        SET_BIT(TIFR2, OCF2A);
+        TIFR2 = (1 << OCF2A);
+        cc2500Idle();
+        setReceiveError();              // Antenne wechseln
+        if(state.RxCount >= 7)
+        {
+          setTimer(TELETIME - CHANTIME02 + 1);
+          calibrateSlow();
+          sendTelemetrie();             // Da wir schon später dran sind sofort senden
+          rxstate = RxOn;
+        }
+        else
+        {
+          ++state.RxCount;
+          setNextChanGoRx(1);
+	  setTimer(CHANTIME);
+        }
       }
     }
     break;
@@ -1361,22 +1210,89 @@ void rxState(void)
     ReceiverInterrupt = false;
     break;
   case RxOn:                    // Senden fertig, Empfänger ein
-//    if(ReceiverInterrupt)
-//    {
-//      ReceiverInterrupt = false;
-//      break;
-//    }
-//    TCNT2 = 0;
-    setTimer(CHANTIME);
+    state.RxCount = 0;
+    setTimer(CHANTIME + CHANTIME02 + 1);    // Verschiebung wieder herstellen
+//    TimerInterrupt = false;    Macht setTimer
+    calibrateFast();
+    if(state.syncError)
+    {
+      setRx();
+      state.syncError = false;
+    }
+    else
+      setNextChanGoRx(1);
 
-    setNextChanCheckIdle(1);
-//    setPaketsizeReceive();
-    calibrateOff();
-    setRx();
+    SET_BIT(EIFR, INTF0);
+    SET_BIT(EIMSK, INT0);                    // INT0 ein
+
     rxstate = Main;
     ReceiverInterrupt = false;
-    TimerInterrupt = false;
     break;
+  }
+}
+
+void checkPulsesHigh(void)
+{
+  uint8_t i;
+  if(output.pulsesOffset)
+    if(!(--output.pulsesOffset))
+    {
+      setupPulses(true);
+      for(i = 4;i < MAXCHAN;++i)
+      {
+        if(eeprom.failSafe[i].failSafeMode)
+        {
+          switch(i)
+          {
+          case 4:
+            output.portCflg &= ~(1 << OUT_C_CHANNEL5);
+            break;
+          case 5:
+            output.portCflg &= ~(1 << OUT_C_CHANNEL6);
+            break;
+          case 6:
+            output.portDflg &= ~(1 << OUT_D_CHANNEL7);
+            break;
+          case 7:
+            output.portDflg &= ~(1 << OUT_D_CHANNEL8);
+            break;
+          }
+        }
+      }
+    }
+}
+
+// Könnte auch früher erfolgen, wenn neue Daten da sind und der letzte PPM- Sync ausgefallen ist
+// Aber wenn die PPM- Syncs schon über 20 ms auseinanderliegen bringt das nicht viel
+void checkPulsesLow(void)
+{
+  uint8_t i;
+
+  ++output.pulsesTimer;
+  if(output.pulsesTimer > 25)           // Spätestens nach 25 ms Servos ansteuern
+  {
+    setupPulses(false);
+    for(i = 0;i < 4;++i)
+    {
+      if(eeprom.failSafe[i].failSafeMode)
+      {
+        switch(i)
+        {
+        case 0:
+          output.portCflg &= ~(1 << OUT_C_CHANNEL1);
+          break;
+        case 1:
+          output.portCflg &= ~(1 << OUT_C_CHANNEL2);
+          break;
+        case 2:
+          output.portCflg &= ~(1 << OUT_C_CHANNEL3);
+          break;
+        case 3:
+          output.portCflg &= ~(1 << OUT_C_CHANNEL4);
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -1389,22 +1305,27 @@ int __attribute__((naked)) main(void)
   uint8_t i;
   for(i = 0;i < 3;++i)
   {
-    if(mcusr_mirror & 1)     // Power on Reset
-      resetCounter[i] = 0;
+    if(mcusr_mirror & 1)                // Power on Reset
+      resetCounter[i] = 0;              // Alle löschen
     else if(mcusr_mirror & (2 << i))
-      ++resetCounter[i];
+      ++resetCounter[i];      // 0 -> External Reset, 1 -> Brown-out Reset, 2 -> Watchdog System Reset
   }
 
-  PORTB = (1<<OUT_B_SPI_SS) | (1<<INP_B_SPI_MISO) | (1<<OUT_B_PRE) | (1 << PORTB1);
+  PORTB = (1<<OUT_B_SPI_SS) | (1<<OUT_B_PRE);
   DDRB =  (1<<OUT_B_SPI_MOSI) | (1<<OUT_B_SPI_SCK) | (1<<OUT_B_SPI_SS) | (1<<OUT_B_PRE);
+  PORTB = (1<<OUT_B_SPI_SS) | (1<<OUT_B_PRE)
+      | ~((1<<OUT_B_SPI_MOSI) | (1<<OUT_B_SPI_SCK) | (1<<OUT_B_SPI_SS) | (1<<OUT_B_PRE));
 
-  PORTC = 0x0;
-  DDRC = (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5) |
-         (1 << OUT_C_CHANNEL6) | (1 << OUT_C_CHANNEL7) | (1 << OUT_C_CHANNEL8);
 
-  PORTD = 1 << INP_D_KEY;
+  DDRC = (1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2) | (1 << OUT_C_CHANNEL3) |
+         (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6);
+  PORTC = ~((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2) | (1 << OUT_C_CHANNEL3) |
+         (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6));
+
   DDRD = (1 << OUT_D_LED) | (1 << OUT_D_ANT1) | (1 << OUT_D_ANT2) |
-         (1 << OUT_D_CHANNEL1) | (1 << OUT_D_CHANNEL2);
+         (1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8);
+  PORTD = ~((1 << OUT_D_LED) | (1 << OUT_D_ANT1) | (1 << OUT_D_ANT2) |
+         (1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8)) | (1 << OUT_D_ANT2);
 
   LED_ON;
 
@@ -1417,9 +1338,12 @@ int __attribute__((naked)) main(void)
 
 // Timer1 8MHz   Servoausgänge
   TCCR1A = 0;
-  TCCR1B = (1 << WGM12) | (1 << CS10);     // CTC OCR1A, 8MHz
-  TCNT1 = 0;
-  OCR1A = 500 * 8;        // in 500us beginnen
+  TCCR1B = 0;
+  OCR1B = (INTERRUPTOFFSET + 0x3ff + 12u) * 8;            // Wenn PPM- Signal ~2,5ms überschreitet ist es ganz schlecht
+
+//  TCCR1B = (1 << WGM12) | (1 << CS10);     // CTC OCR1A, 8MHz
+//  TCNT1 = 0;
+//  OCR1A = 500 * 8;        // in 500us beginnen
 
 
 // Timer2 1ms für Timeout
@@ -1431,9 +1355,9 @@ int __attribute__((naked)) main(void)
   OCR2A  = CHANTIME;
   TCNT2 = 0;
 //  TIFR2  = 0xff;
-  TIMSK2 = 1 << OCIE2A;
+  TIMSK2 = 0;
 
-//  wdt_enable(WDTO_500MS);
+  wdt_enable(WDTO_500MS);
   EICRA = 1 << ISC01;           // int0 bei fallender Flanke
   EIMSK = 0;
 
@@ -1447,47 +1371,71 @@ int __attribute__((naked)) main(void)
   cc2500WriteReg(CC2500_SYNC1,(unsigned char)(eeprom.bind.id >> 8));
   set_sleep_mode(SLEEP_MODE_IDLE);
   getFailSafe();
-//  wdt_enable(WDTO_30MS);
+  wdt_enable(WDTO_30MS);
   LED_OFF;
   output.latenzMin = 0xff;
 
   SET_BIT(EIFR, INTF0);
   SET_BIT(EIMSK, INT0);                    // INT0 ein
 
-  TimerInterrupt = false;
+  TIFR2 = (1 << OCF2A);
+//  SET_BIT(TIFR2, OCF2A);
   ReceiverInterrupt = false;
   sei();
   while(1){
     cc2500_Off();
     sei();
-//    sleep_mode();                   //    warten bis was empfangen (Interrupt)
     //nur bei Timer 1ms Interrupt oder Int0, nicht bei PPM- Interrupt
-    if(TimerInterrupt || ReceiverInterrupt)
+    if((TIFR2 & (1 << OCF2A)) || ReceiverInterrupt)
     {
       rxState();
-      if(state.errorCount)
-        state.led = false;
-    }
-    uint8_t t = TCNT0;
-    static uint8_t Timer0alt;
-    uint8_t dif = (t - Timer0alt) / 8;
-    if(dif)
-    {
-      Timer0alt = t;
-      setOutputTimer(dif);
+//      if(state.errorCount)
+//        state.led = false;
     }
 
+    static uint8_t FailSafeTimer;
+    if(TIFR0 & (1 << OCF0B)) // 1,024 ms
+    {
+//      SET_BIT(TIFR0,OCF0B);
+      TIFR0 = (1 << OCF0B);
+      OCR0B += (F_CPU * 10 / 1024 / 9765);
+      ++FailSafeTimer;
+      if(FailSafeTimer > 20)            // Nach 20 ms Ausgänge abschalten, bei denen Failsafe off
+      {
+        FailSafeTimer = 0;
+        tstFailSafe();
+      }
+      checkPulsesHigh();
+      checkPulsesLow();                   // Steuert spätestens nach 25 ms Ausgänge an
+
+      if((TIFR1 & (1 << OCF1B)) && (state.ppmOverflow < 0xff))
+      {
+        ++state.ppmOverflow;
+//        SET_BIT(TIFR1, OCF1B);
+        TIFR1 = (1 << OCF1B);
+      }
+    }
     if(TIFR0 & (1 << OCF0A))
     {
       OCR0A += (F_CPU * 10 / 1024 / 400);
+      TIFR0 = (1 << OCF0A);
+//      SET_BIT(TIFR0,OCF0A);
       ++Timer25ms;
-      SET_BIT(TIFR0,OCF0A);
+      if(!Timer25ms)
+        RES_BIT(state.ledError, L_SET_FAILSAVE);
       set_led();
-      tstFailSafe();
+      if(checkKey())
+      {
+        state.errorSum = 0;
+        state.frameLost = 0;
+        state.scanCount = 0;
+        state.ppmOverflow = 0;
+        state.okSum = 0;
+      }
     }
     wdt_reset();
-//  test();
-//  inter();
+//    if(!TimerInterrupt && !ReceiverInterrupt)
+//      sleep_mode();                   //    warten bis was empfangen (Interrupt)
   }
 }
 

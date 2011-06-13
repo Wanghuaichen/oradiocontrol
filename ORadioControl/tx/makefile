@@ -28,6 +28,7 @@ ASMFLAGS += -x assembler-with-cpp -Wa,-gdwarf2
 
 ## Linker flags
 LDFLAGS = $(COMMON)
+LDFLAGS +=  -Wl,--section-start=.bloader=0x0fb8 
 LDFLAGS +=  -Wl,--gc-sections
 LDFLAGS +=  -Wl,-Map=$*.map
 
@@ -41,7 +42,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = cc2500.o ORC_com.o
+OBJECTS = cc2500.o ORC_com.o bootloader.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -62,7 +63,10 @@ txst: $(PROJECT).stats $(PROJECT).lss
 ##Compile
 $(PROJECT).o: src/$(PROJECT).c
 	$(CPP) $(INCLUDES) $(CFLAGS) -c  $<
-
+	
+%.o:  src/%.S
+	$(CPP) $(INCLUDES) $(ASMFLAGS) -c  $<	
+	
 %.o: ../%.c
 	$(CPP) $(INCLUDES) $(CFLAGS) -c  $<
 

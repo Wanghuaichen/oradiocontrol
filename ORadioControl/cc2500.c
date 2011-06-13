@@ -117,12 +117,17 @@ uint8_t get_Data(void)
   return(SPI_MasterTransmit(CC2500_SNOP));
 }
 
-void cc2500ReadFIFOBlock(uint8_t *p, uint8_t n)
+bool cc2500ReadFIFOBlock(uint8_t *p, uint8_t n)
 {
-  SPI_MasterTransmit(CC2500_RXFIFO | CC2500_READ_BURST);
+  if(n != (SPI_MasterTransmit(CC2500_RXFIFO | CC2500_READ_BURST) & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM))
+  {
+    cc2500_Off();                      // Burstzugriff rücksetzen
+    return(false);
+  }
   while(n--)
     *p++ = SPI_MasterTransmit(CC2500_SNOP);
   cc2500_Off();                      // Burstzugriff rücksetzen
+  return(true);
 }
 
 uint8_t cc2500WriteFIFOBlock(uint8_t *p, uint8_t n)
@@ -162,14 +167,14 @@ void cc2500setPatableMax(uint8_t power)
 void cc2500Idle(void)
 {
   if((SPI_MasterTransmit(CC2500_SIDLE) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
-    while((SPI_MasterTransmit(CC2500_SNOP) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE);   // Status lesen
+    while(cc2500GetState() != CC2500_STATE_IDLE);   // Status lesen
 }
 
 uint8_t cc2500IdleGetRXB(void)
 {
   uint8_t temp;
   if(((temp = SPI_MasterTransmit(CC2500_SIDLE | CC2500_READ_SINGLE)) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
-    while((SPI_MasterTransmit(CC2500_SNOP) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE);   // Status lesen
+    while(cc2500GetState() != CC2500_STATE_IDLE);   // Status lesen
   return(temp & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM);
 }
 
@@ -178,14 +183,15 @@ void cc2500StartCal(void)
   cc2500CommandStrobe(CC2500_SCAL);
 }
 
-void calibrateOff(void)
+void calibrateFast(void)	                   //Disable charge pump calibration stage when 0
 {
-  cc2500WriteRegCheckIdle(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]) & ~0x20);
+
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, cc2500ReadReg(CC2500_FSCAL3) & ~0x20);
 }
 
-void calibrateOn(void)
+void calibrateSlow(void)
 {
-  cc2500WriteRegCheckIdle(CC2500_FSCAL3, pgm_read_byte(&cc2500InitValue[CC2500_FSCAL3]) | 0x20);
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, (cc2500ReadReg(CC2500_FSCAL3) & ~0x20) | 0x20);
 }
 
 void gotoIdle(void)
