@@ -1,0 +1,3159 @@
+
+ORC_tx.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .text         00000f64  00000000  00000000  00000094  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .bloader      00000048  00000fb8  00000fb8  00000ff8  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  2 .bss          00000055  00800100  00800100  00001040  2**0
+                  ALLOC
+  3 .noinit       00000001  00800155  00800155  00001040  2**0
+                  ALLOC
+  4 .stab         0000096c  00000000  00000000  00001040  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  5 .stabstr      00000112  00000000  00000000  000019ac  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  6 .debug_aranges 00000224  00000000  00000000  00001ac0  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  7 .debug_pubnames 0000049d  00000000  00000000  00001ce4  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_info   0000170c  00000000  00000000  00002181  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_abbrev 00000576  00000000  00000000  0000388d  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_line   000016e9  00000000  00000000  00003e03  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 11 .debug_frame  000003c0  00000000  00000000  000054ec  2**2
+                  CONTENTS, READONLY, DEBUGGING
+ 12 .debug_str    00000822  00000000  00000000  000058ac  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 13 .debug_loc    00000727  00000000  00000000  000060ce  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 14 .debug_ranges 00000210  00000000  00000000  000067f5  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00000000 <__vectors>:
+
+uint8_t get_Data(void)
+{
+  SPI_MasterTransmit(CC2500_READ_SINGLE | CC2500_RXFIFO);
+  return(SPI_MasterTransmit(CC2500_SNOP));
+}
+   0:	30 c0       	rjmp	.+96     	; 0x62 <__ctors_end>
+   2:	4c c4       	rjmp	.+2200   	; 0x89c <__vector_1>
+   4:	56 c0       	rjmp	.+172    	; 0xb2 <__bad_interrupt>
+   6:	55 c0       	rjmp	.+170    	; 0xb2 <__bad_interrupt>
+   8:	54 c0       	rjmp	.+168    	; 0xb2 <__bad_interrupt>
+   a:	53 c0       	rjmp	.+166    	; 0xb2 <__bad_interrupt>
+   c:	52 c0       	rjmp	.+164    	; 0xb2 <__bad_interrupt>
+   e:	29 c5       	rjmp	.+2642   	; 0xa62 <__vector_7>
+  10:	50 c0       	rjmp	.+160    	; 0xb2 <__bad_interrupt>
+  12:	4f c0       	rjmp	.+158    	; 0xb2 <__bad_interrupt>
+  14:	4f c0       	rjmp	.+158    	; 0xb4 <__vector_10>
+  16:	4d c0       	rjmp	.+154    	; 0xb2 <__bad_interrupt>
+  18:	4c c0       	rjmp	.+152    	; 0xb2 <__bad_interrupt>
+  1a:	4b c0       	rjmp	.+150    	; 0xb2 <__bad_interrupt>
+  1c:	4a c0       	rjmp	.+148    	; 0xb2 <__bad_interrupt>
+  1e:	49 c0       	rjmp	.+146    	; 0xb2 <__bad_interrupt>
+  20:	48 c0       	rjmp	.+144    	; 0xb2 <__bad_interrupt>
+  22:	47 c0       	rjmp	.+142    	; 0xb2 <__bad_interrupt>
+  24:	64 c5       	rjmp	.+2760   	; 0xaee <__vector_18>
+  26:	45 c0       	rjmp	.+138    	; 0xb2 <__bad_interrupt>
+  28:	44 c0       	rjmp	.+136    	; 0xb2 <__bad_interrupt>
+  2a:	43 c0       	rjmp	.+134    	; 0xb2 <__bad_interrupt>
+  2c:	42 c0       	rjmp	.+132    	; 0xb2 <__bad_interrupt>
+  2e:	41 c0       	rjmp	.+130    	; 0xb2 <__bad_interrupt>
+  30:	40 c0       	rjmp	.+128    	; 0xb2 <__bad_interrupt>
+  32:	3f c0       	rjmp	.+126    	; 0xb2 <__bad_interrupt>
+
+00000034 <cc2500InitValue>:
+  34:	29 2e 06 07 d3 91 03 0c 44 00 00 0a 00 5c 6c 4e     ).......D....\lN
+  44:	2d 3b 73 f3 ff 00 07 00 18 1d 1c c7 00 b0 87 6b     -;s............k
+  54:	f8 b6 10 ea 0a 00 11 41 00 59 88 31 0b 00           .......A.Y.1..
+
+00000062 <__ctors_end>:
+  62:	11 24       	eor	r1, r1
+  64:	1f be       	out	0x3f, r1	; 63
+  66:	cf ef       	ldi	r28, 0xFF	; 255
+  68:	d2 e0       	ldi	r29, 0x02	; 2
+  6a:	de bf       	out	0x3e, r29	; 62
+  6c:	cd bf       	out	0x3d, r28	; 61
+
+0000006e <get_mcusr>:
+void get_mcusr(void) \
+  __attribute__((naked)) \
+  __attribute__((section(".init3")));
+void get_mcusr(void)
+{
+  wdt_reset();
+  6e:	a8 95       	wdr
+  mcusr_mirror = MCUSR;
+  70:	84 b7       	in	r24, 0x34	; 52
+  72:	80 93 55 01 	sts	0x0155, r24
+  MCUSR = 0;
+  76:	14 be       	out	0x34, r1	; 52
+  wdt_disable();
+  78:	88 e1       	ldi	r24, 0x18	; 24
+  7a:	0f b6       	in	r0, 0x3f	; 63
+  7c:	f8 94       	cli
+  7e:	80 93 60 00 	sts	0x0060, r24
+  82:	10 92 60 00 	sts	0x0060, r1
+  86:	0f be       	out	0x3f, r0	; 63
+
+00000088 <__do_copy_data>:
+  88:	11 e0       	ldi	r17, 0x01	; 1
+  8a:	a0 e0       	ldi	r26, 0x00	; 0
+  8c:	b1 e0       	ldi	r27, 0x01	; 1
+  8e:	e4 e6       	ldi	r30, 0x64	; 100
+  90:	ff e0       	ldi	r31, 0x0F	; 15
+  92:	02 c0       	rjmp	.+4      	; 0x98 <.do_copy_data_start>
+
+00000094 <.do_copy_data_loop>:
+  94:	05 90       	lpm	r0, Z+
+  96:	0d 92       	st	X+, r0
+
+00000098 <.do_copy_data_start>:
+  98:	a0 30       	cpi	r26, 0x00	; 0
+  9a:	b1 07       	cpc	r27, r17
+  9c:	d9 f7       	brne	.-10     	; 0x94 <.do_copy_data_loop>
+
+0000009e <__do_clear_bss>:
+  9e:	11 e0       	ldi	r17, 0x01	; 1
+  a0:	a0 e0       	ldi	r26, 0x00	; 0
+  a2:	b1 e0       	ldi	r27, 0x01	; 1
+  a4:	01 c0       	rjmp	.+2      	; 0xa8 <.do_clear_bss_start>
+
+000000a6 <.do_clear_bss_loop>:
+  a6:	1d 92       	st	X+, r1
+
+000000a8 <.do_clear_bss_start>:
+  a8:	a5 35       	cpi	r26, 0x55	; 85
+  aa:	b1 07       	cpc	r27, r17
+  ac:	e1 f7       	brne	.-8      	; 0xa6 <.do_clear_bss_loop>
+  ae:	34 d2       	rcall	.+1128   	; 0x518 <main>
+  b0:	57 c7       	rjmp	.+3758   	; 0xf60 <_exit>
+
+000000b2 <__bad_interrupt>:
+  b2:	a6 cf       	rjmp	.-180    	; 0x0 <__vectors>
+
+000000b4 <__vector_10>:
+  cli();
+  SET_BIT(TIMSK2, OCIE2A);                 // Timerinterrupt ein
+}
+
+ISR(TIMER1_CAPT_vect, ISR_NOBLOCK)                  //8MHz capture
+{                                               // Timer läuft immer im Kreis
+  b4:	78 94       	sei
+  b6:	1f 92       	push	r1
+  b8:	0f 92       	push	r0
+  ba:	0f b6       	in	r0, 0x3f	; 63
+  bc:	0f 92       	push	r0
+  be:	11 24       	eor	r1, r1
+  c0:	2f 93       	push	r18
+  c2:	4f 93       	push	r20
+  c4:	5f 93       	push	r21
+  c6:	6f 93       	push	r22
+  c8:	7f 93       	push	r23
+  ca:	8f 93       	push	r24
+  cc:	9f 93       	push	r25
+  ce:	ef 93       	push	r30
+  d0:	ff 93       	push	r31
+  static uint16_t capture_alt;
+  static uint8_t chanPtr;
+  uint8_t chanPtrtemp = chanPtr;
+  d2:	20 91 08 01 	lds	r18, 0x0108
+
+  uint16_t capture = ICR1;
+  d6:	40 91 86 00 	lds	r20, 0x0086
+  da:	50 91 87 00 	lds	r21, 0x0087
+  if(TIFR1 & (1 << OCF1A))              // Neuer PPM- Frame (>3ms Pause)
+  de:	b1 9b       	sbis	0x16, 1	; 22
+  e0:	04 c0       	rjmp	.+8      	; 0xea <__vector_10+0x36>
+  {
+    state.maxChan = chanPtrtemp;
+  e2:	20 93 3a 01 	sts	0x013A, r18
+  e6:	20 e0       	ldi	r18, 0x00	; 0
+  e8:	1f c0       	rjmp	.+62     	; 0x128 <__vector_10+0x74>
+    chanPtrtemp = 0;
+  }
+  else if(chanPtrtemp < 16)
+  ea:	20 31       	cpi	r18, 0x10	; 16
+  ec:	e8 f4       	brcc	.+58     	; 0x128 <__vector_10+0x74>
+  {                                                     // Auf 16 Kanäle begrenzen
+    output.chan_1us[chanPtrtemp] = (capture - capture_alt) / 8 - 1500u;
+  ee:	e2 2f       	mov	r30, r18
+  f0:	f0 e0       	ldi	r31, 0x00	; 0
+  f2:	80 91 09 01 	lds	r24, 0x0109
+  f6:	90 91 0a 01 	lds	r25, 0x010A
+  fa:	ba 01       	movw	r22, r20
+  fc:	68 1b       	sub	r22, r24
+  fe:	79 0b       	sbc	r23, r25
+ 100:	cb 01       	movw	r24, r22
+ 102:	73 e0       	ldi	r23, 0x03	; 3
+ 104:	96 95       	lsr	r25
+ 106:	87 95       	ror	r24
+ 108:	7a 95       	dec	r23
+ 10a:	e1 f7       	brne	.-8      	; 0x104 <__vector_10+0x50>
+ 10c:	8c 5d       	subi	r24, 0xDC	; 220
+ 10e:	95 40       	sbci	r25, 0x05	; 5
+ 110:	ee 0f       	add	r30, r30
+ 112:	ff 1f       	adc	r31, r31
+ 114:	ee 5e       	subi	r30, 0xEE	; 238
+ 116:	fe 4f       	sbci	r31, 0xFE	; 254
+ 118:	91 83       	std	Z+1, r25	; 0x01
+ 11a:	80 83       	st	Z, r24
+    if(chanPtrtemp == 3)
+ 11c:	23 30       	cpi	r18, 0x03	; 3
+ 11e:	19 f4       	brne	.+6      	; 0x126 <__vector_10+0x72>
+      output.ppmSync = 4;
+ 120:	84 e0       	ldi	r24, 0x04	; 4
+ 122:	80 93 32 01 	sts	0x0132, r24
+    ++chanPtrtemp;
+ 126:	2f 5f       	subi	r18, 0xFF	; 255
+  }	
+  cli();
+ 128:	f8 94       	cli
+  OCR1A = TCNT1 + (FOSC*100 / 33333); 			// 3ms
+ 12a:	80 91 84 00 	lds	r24, 0x0084
+ 12e:	90 91 85 00 	lds	r25, 0x0085
+ 132:	80 54       	subi	r24, 0x40	; 64
+ 134:	92 4a       	sbci	r25, 0xA2	; 162
+ 136:	90 93 89 00 	sts	0x0089, r25
+ 13a:	80 93 88 00 	sts	0x0088, r24
+  sei();
+ 13e:	78 94       	sei
+//  SET_BIT(TIFR1, OCF1A);
+  TIFR1 = (1 << OCF1A);
+ 140:	82 e0       	ldi	r24, 0x02	; 2
+ 142:	86 bb       	out	0x16, r24	; 22
+  capture_alt = capture;
+ 144:	50 93 0a 01 	sts	0x010A, r21
+ 148:	40 93 09 01 	sts	0x0109, r20
+  chanPtr = chanPtrtemp;
+ 14c:	20 93 08 01 	sts	0x0108, r18
+}
+ 150:	ff 91       	pop	r31
+ 152:	ef 91       	pop	r30
+ 154:	9f 91       	pop	r25
+ 156:	8f 91       	pop	r24
+ 158:	7f 91       	pop	r23
+ 15a:	6f 91       	pop	r22
+ 15c:	5f 91       	pop	r21
+ 15e:	4f 91       	pop	r20
+ 160:	2f 91       	pop	r18
+ 162:	0f 90       	pop	r0
+ 164:	0f be       	out	0x3f, r0	; 63
+ 166:	0f 90       	pop	r0
+ 168:	1f 90       	pop	r1
+ 16a:	18 95       	reti
+
+0000016c <SPI_MasterTransmit>:
+//  else if(sendMes.MemoryWord.tar == 2)          // flash
+//    ;
+}
+
+uint8_t SPI_MasterTransmit(uint8_t cData)
+{
+ 16c:	98 2f       	mov	r25, r24
+  uint8_t i = 0;
+  if(PORTB & (1 << OUT_B_SPI_SS))
+ 16e:	2a 9b       	sbis	0x05, 2	; 5
+ 170:	27 c0       	rjmp	.+78     	; 0x1c0 <SPI_MasterTransmit+0x54>
+  {
+    RES_BIT(PORTB, OUT_B_SPI_SS);
+ 172:	2a 98       	cbi	0x05, 2	; 5
+    NOP();
+ 174:	00 00       	nop
+ 176:	80 e0       	ldi	r24, 0x00	; 0
+ 178:	09 c0       	rjmp	.+18     	; 0x18c <SPI_MasterTransmit+0x20>
+    while(PINB & (1<<OUT_B_SPI_SS))
+      if(++i > 0xfe)
+ 17a:	8f 5f       	subi	r24, 0xFF	; 255
+ 17c:	8f 3f       	cpi	r24, 0xFF	; 255
+ 17e:	31 f4       	brne	.+12     	; 0x18c <SPI_MasterTransmit+0x20>
+      {
+        SET_BIT(state.ledError, L_SPI_ERROR);
+ 180:	80 91 3c 01 	lds	r24, 0x013C
+ 184:	88 60       	ori	r24, 0x08	; 8
+ 186:	80 93 3c 01 	sts	0x013C, r24
+ 18a:	02 c0       	rjmp	.+4      	; 0x190 <SPI_MasterTransmit+0x24>
+  uint8_t i = 0;
+  if(PORTB & (1 << OUT_B_SPI_SS))
+  {
+    RES_BIT(PORTB, OUT_B_SPI_SS);
+    NOP();
+    while(PINB & (1<<OUT_B_SPI_SS))
+ 18c:	1a 99       	sbic	0x03, 2	; 3
+ 18e:	f5 cf       	rjmp	.-22     	; 0x17a <SPI_MasterTransmit+0xe>
+      if(++i > 0xfe)
+      {
+        SET_BIT(state.ledError, L_SPI_ERROR);
+        break;
+      }
+    NOP();
+ 190:	00 00       	nop
+ 192:	80 e0       	ldi	r24, 0x00	; 0
+ 194:	09 c0       	rjmp	.+18     	; 0x1a8 <SPI_MasterTransmit+0x3c>
+    i = 0;
+    while(PINB & (1 << INP_B_SPI_MISO))
+      if(++i > 0xfe)
+ 196:	8f 5f       	subi	r24, 0xFF	; 255
+ 198:	8f 3f       	cpi	r24, 0xFF	; 255
+ 19a:	31 f4       	brne	.+12     	; 0x1a8 <SPI_MasterTransmit+0x3c>
+      {
+        SET_BIT(state.ledError, L_SPI_ERROR);
+ 19c:	80 91 3c 01 	lds	r24, 0x013C
+ 1a0:	88 60       	ori	r24, 0x08	; 8
+ 1a2:	80 93 3c 01 	sts	0x013C, r24
+ 1a6:	0c c0       	rjmp	.+24     	; 0x1c0 <SPI_MasterTransmit+0x54>
+        SET_BIT(state.ledError, L_SPI_ERROR);
+        break;
+      }
+    NOP();
+    i = 0;
+    while(PINB & (1 << INP_B_SPI_MISO))
+ 1a8:	1c 99       	sbic	0x03, 4	; 3
+ 1aa:	f5 cf       	rjmp	.-22     	; 0x196 <SPI_MasterTransmit+0x2a>
+ 1ac:	09 c0       	rjmp	.+18     	; 0x1c0 <SPI_MasterTransmit+0x54>
+        break;
+      }
+  }
+  i = 0;
+  while(PIND & (1<<INP_D_CC2500_GDO2))
+    if(++i > 0xfe)
+ 1ae:	8f 5f       	subi	r24, 0xFF	; 255
+ 1b0:	8f 3f       	cpi	r24, 0xFF	; 255
+ 1b2:	39 f4       	brne	.+14     	; 0x1c2 <SPI_MasterTransmit+0x56>
+    {
+      SET_BIT(state.ledError, L_SPI_ERROR);
+ 1b4:	80 91 3c 01 	lds	r24, 0x013C
+ 1b8:	88 60       	ori	r24, 0x08	; 8
+ 1ba:	80 93 3c 01 	sts	0x013C, r24
+ 1be:	03 c0       	rjmp	.+6      	; 0x1c6 <SPI_MasterTransmit+0x5a>
+      break;
+ 1c0:	80 e0       	ldi	r24, 0x00	; 0
+        SET_BIT(state.ledError, L_SPI_ERROR);
+        break;
+      }
+  }
+  i = 0;
+  while(PIND & (1<<INP_D_CC2500_GDO2))
+ 1c2:	4b 99       	sbic	0x09, 3	; 9
+ 1c4:	f4 cf       	rjmp	.-24     	; 0x1ae <SPI_MasterTransmit+0x42>
+    if(++i > 0xfe)
+    {
+      SET_BIT(state.ledError, L_SPI_ERROR);
+      break;
+    }
+  if(SPSR & (1<<SPIF))
+ 1c6:	0d b4       	in	r0, 0x2d	; 45
+ 1c8:	07 fc       	sbrc	r0, 7
+    i = SPDR;
+ 1ca:	8e b5       	in	r24, 0x2e	; 46
+  do
+    SPDR = cData;
+ 1cc:	9e bd       	out	0x2e, r25	; 46
+  while(SPSR & (1 << WCOL));
+ 1ce:	0d b4       	in	r0, 0x2d	; 45
+ 1d0:	06 fc       	sbrc	r0, 6
+ 1d2:	fc cf       	rjmp	.-8      	; 0x1cc <SPI_MasterTransmit+0x60>
+ 1d4:	01 c0       	rjmp	.+2      	; 0x1d8 <SPI_MasterTransmit+0x6c>
+  while(!(SPSR & (1<<SPIF))) NOP();                            /* Wait for transmission complete */
+ 1d6:	00 00       	nop
+ 1d8:	0d b4       	in	r0, 0x2d	; 45
+ 1da:	07 fe       	sbrs	r0, 7
+ 1dc:	fc cf       	rjmp	.-8      	; 0x1d6 <SPI_MasterTransmit+0x6a>
+  return(SPDR);
+ 1de:	8e b5       	in	r24, 0x2e	; 46
+}
+ 1e0:	08 95       	ret
+
+000001e2 <cc2500_Off>:
+
+void cc2500_Off(void)
+{
+  SET_BIT(PORTB, OUT_B_SPI_SS);
+ 1e2:	2a 9a       	sbi	0x05, 2	; 5
+  do
+  {
+    NOP();
+ 1e4:	00 00       	nop
+  }
+  while(!(PINB & (1<<OUT_B_SPI_SS)));
+ 1e6:	1a 9b       	sbis	0x03, 2	; 3
+ 1e8:	fd cf       	rjmp	.-6      	; 0x1e4 <cc2500_Off+0x2>
+}
+ 1ea:	08 95       	ret
+
+000001ec <checkKey>:
+//  cc2500WriteRegCheckIdle(CC2500_PKTLEN, sizeof(Telemetrie));
+//}
+
+bool checkKey(void)
+{
+  return(!(PINC & (1 << INP_C_KEY)));
+ 1ec:	86 b1       	in	r24, 0x06	; 6
+ 1ee:	86 95       	lsr	r24
+ 1f0:	86 95       	lsr	r24
+ 1f2:	80 95       	com	r24
+}
+ 1f4:	81 70       	andi	r24, 0x01	; 1
+ 1f6:	08 95       	ret
+
+000001f8 <set_led>:
+{
+  static uint8_t timer_alt;
+  static uint8_t led_count;
+  uint8_t ledErrorTemp;
+
+  int8_t diff = ((uint8_t)Timer33ms) - timer_alt;
+ 1f8:	80 91 52 01 	lds	r24, 0x0152
+ 1fc:	90 91 53 01 	lds	r25, 0x0153
+  if(diff > (1000 / 4 / 33))
+ 200:	20 91 03 01 	lds	r18, 0x0103
+ 204:	82 1b       	sub	r24, r18
+ 206:	88 30       	cpi	r24, 0x08	; 8
+ 208:	ec f1       	brlt	.+122    	; 0x284 <set_led+0x8c>
+  {
+    timer_alt = (uint8_t)Timer33ms;
+ 20a:	80 91 52 01 	lds	r24, 0x0152
+ 20e:	90 91 53 01 	lds	r25, 0x0153
+ 212:	38 2f       	mov	r19, r24
+ 214:	80 93 03 01 	sts	0x0103, r24
+
+    if(!(led_count & 0xf))            // unteres Nibble 0
+ 218:	20 91 02 01 	lds	r18, 0x0102
+ 21c:	82 2f       	mov	r24, r18
+ 21e:	90 e0       	ldi	r25, 0x00	; 0
+ 220:	8f 70       	andi	r24, 0x0F	; 15
+ 222:	90 70       	andi	r25, 0x00	; 0
+ 224:	89 2b       	or	r24, r25
+ 226:	e9 f4       	brne	.+58     	; 0x262 <set_led+0x6a>
+    {
+      ledErrorTemp = state.ledError;
+ 228:	80 91 3c 01 	lds	r24, 0x013C
+      while(ledErrorTemp)
+ 22c:	88 23       	and	r24, r24
+ 22e:	51 f1       	breq	.+84     	; 0x284 <set_led+0x8c>
+      {
+        led_count += 0x10;
+        led_count &= 0x7f;
+        if(ledErrorTemp & (1 << (led_count >> 4)))
+ 230:	48 2f       	mov	r20, r24
+ 232:	50 e0       	ldi	r21, 0x00	; 0
+    if(!(led_count & 0xf))            // unteres Nibble 0
+    {
+      ledErrorTemp = state.ledError;
+      while(ledErrorTemp)
+      {
+        led_count += 0x10;
+ 234:	20 5f       	subi	r18, 0xF0	; 240
+        led_count &= 0x7f;
+ 236:	2f 77       	andi	r18, 0x7F	; 127
+        if(ledErrorTemp & (1 << (led_count >> 4)))
+ 238:	82 2f       	mov	r24, r18
+ 23a:	82 95       	swap	r24
+ 23c:	8f 70       	andi	r24, 0x0F	; 15
+ 23e:	ba 01       	movw	r22, r20
+ 240:	02 c0       	rjmp	.+4      	; 0x246 <set_led+0x4e>
+ 242:	75 95       	asr	r23
+ 244:	67 95       	ror	r22
+ 246:	8a 95       	dec	r24
+ 248:	e2 f7       	brpl	.-8      	; 0x242 <set_led+0x4a>
+ 24a:	60 ff       	sbrs	r22, 0
+ 24c:	f3 cf       	rjmp	.-26     	; 0x234 <set_led+0x3c>
+        {
+          led_count |= (led_count >> 3) | 1;      // Blinkzähler setzen
+ 24e:	82 2f       	mov	r24, r18
+ 250:	86 95       	lsr	r24
+ 252:	86 95       	lsr	r24
+ 254:	86 95       	lsr	r24
+ 256:	21 60       	ori	r18, 0x01	; 1
+ 258:	82 2b       	or	r24, r18
+ 25a:	80 93 02 01 	sts	0x0102, r24
+          LEDRED_ON;
+ 25e:	40 9a       	sbi	0x08, 0	; 8
+ 260:	08 95       	ret
+        }
+      }
+    }
+    else
+    {
+      --led_count;
+ 262:	82 2f       	mov	r24, r18
+ 264:	81 50       	subi	r24, 0x01	; 1
+ 266:	80 93 02 01 	sts	0x0102, r24
+      if(led_count & 1)
+ 26a:	90 e0       	ldi	r25, 0x00	; 0
+ 26c:	80 ff       	sbrs	r24, 0
+ 26e:	02 c0       	rjmp	.+4      	; 0x274 <set_led+0x7c>
+        LEDRED_ON;
+ 270:	40 9a       	sbi	0x08, 0	; 8
+ 272:	01 c0       	rjmp	.+2      	; 0x276 <set_led+0x7e>
+      else
+        LEDRED_OFF;
+ 274:	40 98       	cbi	0x08, 0	; 8
+      if(!(led_count & 0xf))
+ 276:	8f 70       	andi	r24, 0x0F	; 15
+ 278:	90 70       	andi	r25, 0x00	; 0
+ 27a:	89 2b       	or	r24, r25
+ 27c:	19 f4       	brne	.+6      	; 0x284 <set_led+0x8c>
+        timer_alt += (1000 / 4 / 33 * 3);                    // Pause
+ 27e:	3b 5e       	subi	r19, 0xEB	; 235
+ 280:	30 93 03 01 	sts	0x0103, r19
+ 284:	08 95       	ret
+
+00000286 <checkId>:
+  }
+}
+
+bool checkId(void)
+{
+  return (eeprom.bind.id && (eeprom.bind.id != 0xffff)
+ 286:	20 91 0b 01 	lds	r18, 0x010B
+ 28a:	30 91 0c 01 	lds	r19, 0x010C
+ 28e:	c9 01       	movw	r24, r18
+ 290:	01 97       	sbiw	r24, 0x01	; 1
+ 292:	8e 5f       	subi	r24, 0xFE	; 254
+ 294:	9f 4f       	sbci	r25, 0xFF	; 255
+ 296:	c0 f4       	brcc	.+48     	; 0x2c8 <checkId+0x42>
+ 298:	83 2f       	mov	r24, r19
+ 29a:	99 27       	eor	r25, r25
+ 29c:	30 70       	andi	r19, 0x00	; 0
+ 29e:	82 17       	cp	r24, r18
+ 2a0:	93 07       	cpc	r25, r19
+ 2a2:	91 f0       	breq	.+36     	; 0x2c8 <checkId+0x42>
+ 2a4:	8a 3a       	cpi	r24, 0xAA	; 170
+ 2a6:	91 05       	cpc	r25, r1
+ 2a8:	79 f0       	breq	.+30     	; 0x2c8 <checkId+0x42>
+ 2aa:	85 35       	cpi	r24, 0x55	; 85
+ 2ac:	91 05       	cpc	r25, r1
+ 2ae:	61 f0       	breq	.+24     	; 0x2c8 <checkId+0x42>
+ 2b0:	80 91 0d 01 	lds	r24, 0x010D
+ 2b4:	85 30       	cpi	r24, 0x05	; 5
+ 2b6:	40 f0       	brcs	.+16     	; 0x2c8 <checkId+0x42>
+ 2b8:	90 e0       	ldi	r25, 0x00	; 0
+ 2ba:	8d 35       	cpi	r24, 0x5D	; 93
+ 2bc:	08 f0       	brcs	.+2      	; 0x2c0 <checkId+0x3a>
+ 2be:	91 e0       	ldi	r25, 0x01	; 1
+ 2c0:	81 e0       	ldi	r24, 0x01	; 1
+ 2c2:	98 27       	eor	r25, r24
+ 2c4:	89 2f       	mov	r24, r25
+ 2c6:	08 95       	ret
+ 2c8:	80 e0       	ldi	r24, 0x00	; 0
+ 2ca:	90 e0       	ldi	r25, 0x00	; 0
+      && ((eeprom.bind.id >> 8) != (eeprom.bind.id & 0xff))
+      && ((eeprom.bind.id >> 8) != 0xaa)
+      && ((eeprom.bind.id >> 8) != 0x55)
+      && (eeprom.bind.step > 4) && (eeprom.bind.step < MAXHOPPCHAN / 2 - 4));
+}
+ 2cc:	08 95       	ret
+
+000002ce <calcCheckSum>:
+
+uint16_t calcCheckSum(uint8_t *p, uint16_t size)
+{
+ 2ce:	fc 01       	movw	r30, r24
+ 2d0:	20 e0       	ldi	r18, 0x00	; 0
+ 2d2:	30 e0       	ldi	r19, 0x00	; 0
+ 2d4:	05 c0       	rjmp	.+10     	; 0x2e0 <calcCheckSum+0x12>
+  uint16_t sum = 0;
+
+  while(size--)
+    sum += *p++;
+ 2d6:	81 91       	ld	r24, Z+
+ 2d8:	28 0f       	add	r18, r24
+ 2da:	31 1d       	adc	r19, r1
+ 2dc:	61 50       	subi	r22, 0x01	; 1
+ 2de:	70 40       	sbci	r23, 0x00	; 0
+
+uint16_t calcCheckSum(uint8_t *p, uint16_t size)
+{
+  uint16_t sum = 0;
+
+  while(size--)
+ 2e0:	61 15       	cp	r22, r1
+ 2e2:	71 05       	cpc	r23, r1
+ 2e4:	c1 f7       	brne	.-16     	; 0x2d6 <calcCheckSum+0x8>
+    sum += *p++;
+  return(sum);
+}
+ 2e6:	c9 01       	movw	r24, r18
+ 2e8:	08 95       	ret
+
+000002ea <tx_ok>:
+  setNext();                            // Empfang ein
+}
+
+void tx_ok(void)
+{
+  if(state.ccaCount > 0)
+ 2ea:	80 91 3d 01 	lds	r24, 0x013D
+ 2ee:	88 23       	and	r24, r24
+ 2f0:	29 f0       	breq	.+10     	; 0x2fc <tx_ok+0x12>
+    --state.ccaCount;
+ 2f2:	80 91 3d 01 	lds	r24, 0x013D
+ 2f6:	81 50       	subi	r24, 0x01	; 1
+ 2f8:	80 93 3d 01 	sts	0x013D, r24
+ 2fc:	08 95       	ret
+
+000002fe <UartTxReady>:
+}
+*/
+
+void UartTxReady(void)
+{
+  while(!(UCSR0A & (1 << UDRE0)));              // warten bis Sendepuffer leer
+ 2fe:	80 91 c0 00 	lds	r24, 0x00C0
+ 302:	85 ff       	sbrs	r24, 5
+ 304:	fc cf       	rjmp	.-8      	; 0x2fe <UartTxReady>
+}
+ 306:	08 95       	ret
+
+00000308 <sendTelemetrie2UART>:
+
+void sendTelemetrie2UART(void)
+{
+ 308:	cf 93       	push	r28
+ 30a:	df 93       	push	r29
+  if(TelemetrieMes.crcOk)
+ 30c:	80 91 51 01 	lds	r24, 0x0151
+ 310:	87 ff       	sbrs	r24, 7
+ 312:	11 c0       	rjmp	.+34     	; 0x336 <sendTelemetrie2UART+0x2e>
+  {
+    UartTxReady();
+ 314:	f4 df       	rcall	.-24     	; 0x2fe <UartTxReady>
+    UDR0 = 'T';
+ 316:	84 e5       	ldi	r24, 0x54	; 84
+ 318:	80 93 c6 00 	sts	0x00C6, r24
+ 31c:	ca e4       	ldi	r28, 0x4A	; 74
+ 31e:	d1 e0       	ldi	r29, 0x01	; 1
+    uint8_t i;
+    uint8_t *p;
+    for(i = 0, p = &TelemetrieMes.data.Unspec.dataB6;i < 6;++i)
+    {
+      UartTxReady();
+ 320:	ee df       	rcall	.-36     	; 0x2fe <UartTxReady>
+      UDR0 = *p++;
+ 322:	89 91       	ld	r24, Y+
+ 324:	80 93 c6 00 	sts	0x00C6, r24
+  {
+    UartTxReady();
+    UDR0 = 'T';
+    uint8_t i;
+    uint8_t *p;
+    for(i = 0, p = &TelemetrieMes.data.Unspec.dataB6;i < 6;++i)
+ 328:	81 e0       	ldi	r24, 0x01	; 1
+ 32a:	c0 35       	cpi	r28, 0x50	; 80
+ 32c:	d8 07       	cpc	r29, r24
+ 32e:	c1 f7       	brne	.-16     	; 0x320 <sendTelemetrie2UART+0x18>
+    {
+      UartTxReady();
+      UDR0 = *p++;
+    }
+    TelemetrieMes.crcOk = false;
+ 330:	89 81       	ldd	r24, Y+1	; 0x01
+ 332:	8f 77       	andi	r24, 0x7F	; 127
+ 334:	89 83       	std	Y+1, r24	; 0x01
+  }
+}
+ 336:	df 91       	pop	r29
+ 338:	cf 91       	pop	r28
+ 33a:	08 95       	ret
+
+0000033c <chkFailSafe>:
+
+void chkFailSafe(void)
+{
+  if(checkKey())
+ 33c:	57 df       	rcall	.-338    	; 0x1ec <checkKey>
+ 33e:	88 23       	and	r24, r24
+ 340:	39 f0       	breq	.+14     	; 0x350 <chkFailSafe+0x14>
+  {
+    state.SetFaileSafe = true;
+ 342:	81 e0       	ldi	r24, 0x01	; 1
+ 344:	80 93 36 01 	sts	0x0136, r24
+    SET_BIT(state.ledError, L_SET_FAILSAVE);
+ 348:	80 91 3c 01 	lds	r24, 0x013C
+ 34c:	81 60       	ori	r24, 0x01	; 1
+ 34e:	03 c0       	rjmp	.+6      	; 0x356 <chkFailSafe+0x1a>
+  }
+  else
+    RES_BIT(state.ledError, L_SET_FAILSAVE);
+ 350:	80 91 3c 01 	lds	r24, 0x013C
+ 354:	8e 7f       	andi	r24, 0xFE	; 254
+ 356:	80 93 3c 01 	sts	0x013C, r24
+ 35a:	08 95       	ret
+
+0000035c <USART_Init>:
+  }
+}
+
+void USART_Init( unsigned int ubrr)
+{
+  UBRR0 = ubrr;
+ 35c:	90 93 c5 00 	sts	0x00C5, r25
+ 360:	80 93 c4 00 	sts	0x00C4, r24
+  UCSR0A = 0;                                   //1 << U2X0;
+ 364:	10 92 c0 00 	sts	0x00C0, r1
+  UCSR0C = (3 << UCSZ00);                     /* Set frame format: 8data, 1stop bit */
+ 368:	86 e0       	ldi	r24, 0x06	; 6
+ 36a:	80 93 c2 00 	sts	0x00C2, r24
+  UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);    /* Enable receiver and transmitter */
+ 36e:	88 e9       	ldi	r24, 0x98	; 152
+ 370:	80 93 c1 00 	sts	0x00C1, r24
+  SET_BIT(PORTD, INP_D_RXD);                    // Pullup ein
+ 374:	58 9a       	sbi	0x0b, 0	; 11
+}
+ 376:	08 95       	ret
+
+00000378 <setNextChan>:
+  cc2500setPatableMax(0x7f);             // Sendeleistung runter
+}
+
+void setNextChan(void)                // Kanal schreiben
+{
+  uint16_t tempChan = state.actTxChan;
+ 378:	80 91 39 01 	lds	r24, 0x0139
+ 37c:	68 2f       	mov	r22, r24
+ 37e:	70 e0       	ldi	r23, 0x00	; 0
+  if(state.bindmode)
+ 380:	80 91 35 01 	lds	r24, 0x0135
+ 384:	88 23       	and	r24, r24
+ 386:	19 f0       	breq	.+6      	; 0x38e <setNextChan+0x16>
+    tempChan += BINDMODESTEP * 2 + 1;
+ 388:	6f 57       	subi	r22, 0x7F	; 127
+ 38a:	7f 4f       	sbci	r23, 0xFF	; 255
+ 38c:	0c c0       	rjmp	.+24     	; 0x3a6 <setNextChan+0x2e>
+  else
+  tempChan += eeprom.bind.step * 2 + 1;
+ 38e:	6f 5f       	subi	r22, 0xFF	; 255
+ 390:	7f 4f       	sbci	r23, 0xFF	; 255
+ 392:	80 91 0d 01 	lds	r24, 0x010D
+ 396:	90 e0       	ldi	r25, 0x00	; 0
+ 398:	88 0f       	add	r24, r24
+ 39a:	99 1f       	adc	r25, r25
+ 39c:	68 0f       	add	r22, r24
+ 39e:	79 1f       	adc	r23, r25
+ 3a0:	02 c0       	rjmp	.+4      	; 0x3a6 <setNextChan+0x2e>
+  while(tempChan > MAXHOPPCHAN)
+    tempChan -= (MAXHOPPCHAN + 1);
+ 3a2:	64 5c       	subi	r22, 0xC4	; 196
+ 3a4:	70 40       	sbci	r23, 0x00	; 0
+  uint16_t tempChan = state.actTxChan;
+  if(state.bindmode)
+    tempChan += BINDMODESTEP * 2 + 1;
+  else
+  tempChan += eeprom.bind.step * 2 + 1;
+  while(tempChan > MAXHOPPCHAN)
+ 3a6:	64 3c       	cpi	r22, 0xC4	; 196
+ 3a8:	71 05       	cpc	r23, r1
+ 3aa:	d8 f7       	brcc	.-10     	; 0x3a2 <setNextChan+0x2a>
+    tempChan -= (MAXHOPPCHAN + 1);
+  state.actTxChan = tempChan;
+ 3ac:	60 93 39 01 	sts	0x0139, r22
+  cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
+ 3b0:	8a e0       	ldi	r24, 0x0A	; 10
+ 3b2:	9d d4       	rcall	.+2362   	; 0xcee <cc2500WriteRegCheckIdle>
+}
+ 3b4:	08 95       	ret
+
+000003b6 <cc2500_EnableTx>:
+
+bool cc2500_EnableTx(void)
+{
+  // heiße Sache, CPU hat 0,64ms Zeit um die Daten zu schreiben
+  // aber das Timing ist konstanter!
+  RES_BIT(PORTD, OUT_D_CRX);
+ 3b6:	5d 98       	cbi	0x0b, 5	; 11
+  if((SPI_MasterTransmit(CC2500_STX) & CC2500_STATUS_STATE_BM) != CC2500_STATE_RX)
+ 3b8:	85 e3       	ldi	r24, 0x35	; 53
+ 3ba:	d8 de       	rcall	.-592    	; 0x16c <SPI_MasterTransmit>
+ 3bc:	80 77       	andi	r24, 0x70	; 112
+ 3be:	80 31       	cpi	r24, 0x10	; 16
+ 3c0:	41 f0       	breq	.+16     	; 0x3d2 <cc2500_EnableTx+0x1c>
+  {
+    sei();
+ 3c2:	78 94       	sei
+    SET_BIT(state.ledError, L_NOT_RX);
+ 3c4:	80 91 3c 01 	lds	r24, 0x013C
+ 3c8:	80 62       	ori	r24, 0x20	; 32
+ 3ca:	80 93 3c 01 	sts	0x013C, r24
+ 3ce:	80 e0       	ldi	r24, 0x00	; 0
+ 3d0:	08 95       	ret
+    return(false);
+  }
+  else
+  {
+    if(eeprom.ccaOff || (cc2500GetState() != CC2500_STATE_RX))
+ 3d2:	80 91 0f 01 	lds	r24, 0x010F
+ 3d6:	88 23       	and	r24, r24
+ 3d8:	19 f4       	brne	.+6      	; 0x3e0 <cc2500_EnableTx+0x2a>
+ 3da:	70 d4       	rcall	.+2272   	; 0xcbc <cc2500GetState>
+ 3dc:	80 31       	cpi	r24, 0x10	; 16
+ 3de:	39 f0       	breq	.+14     	; 0x3ee <cc2500_EnableTx+0x38>
+    {
+      SET_BIT(PORTB, OUT_B_CTX);
+ 3e0:	29 9a       	sbi	0x05, 1	; 5
+      sei();
+ 3e2:	78 94       	sei
+      SET_BIT(EIFR, INTF0);                          // Interruptflag löschen
+ 3e4:	e0 9a       	sbi	0x1c, 0	; 28
+      SET_BIT(EIMSK, INT0);                           // Interrupt ein
+ 3e6:	e8 9a       	sbi	0x1d, 0	; 29
+      LEDGREEN_ON;
+ 3e8:	41 9a       	sbi	0x08, 1	; 8
+ 3ea:	81 e0       	ldi	r24, 0x01	; 1
+ 3ec:	08 95       	ret
+      return(true);
+    }
+    else
+    {
+      sei();
+ 3ee:	78 94       	sei
+      ++state.ccaSum;
+ 3f0:	80 91 3f 01 	lds	r24, 0x013F
+ 3f4:	90 91 40 01 	lds	r25, 0x0140
+ 3f8:	a0 91 41 01 	lds	r26, 0x0141
+ 3fc:	b0 91 42 01 	lds	r27, 0x0142
+ 400:	01 96       	adiw	r24, 0x01	; 1
+ 402:	a1 1d       	adc	r26, r1
+ 404:	b1 1d       	adc	r27, r1
+ 406:	80 93 3f 01 	sts	0x013F, r24
+ 40a:	90 93 40 01 	sts	0x0140, r25
+ 40e:	a0 93 41 01 	sts	0x0141, r26
+ 412:	b0 93 42 01 	sts	0x0142, r27
+      if(state.ccaCount < 5)
+ 416:	80 91 3d 01 	lds	r24, 0x013D
+ 41a:	85 30       	cpi	r24, 0x05	; 5
+ 41c:	28 f4       	brcc	.+10     	; 0x428 <cc2500_EnableTx+0x72>
+        ++state.ccaCount;                   // hier CCA abschalten wenn zuviel
+ 41e:	80 91 3d 01 	lds	r24, 0x013D
+ 422:	8f 5f       	subi	r24, 0xFF	; 255
+ 424:	80 93 3d 01 	sts	0x013D, r24
+      if(state.ccaCount >= 5)
+ 428:	80 91 3d 01 	lds	r24, 0x013D
+ 42c:	85 30       	cpi	r24, 0x05	; 5
+ 42e:	18 f0       	brcs	.+6      	; 0x436 <cc2500_EnableTx+0x80>
+      {
+        cc2500WriteRegCheckIdle(CC2500_MCSM1, SMARTRF_SETTING_MCSM1 & ~0x30);  // aus
+ 430:	87 e1       	ldi	r24, 0x17	; 23
+ 432:	60 e0       	ldi	r22, 0x00	; 0
+ 434:	5c d4       	rcall	.+2232   	; 0xcee <cc2500WriteRegCheckIdle>
+      }
+      LEDGREEN_OFF;
+ 436:	41 98       	cbi	0x08, 1	; 8
+ 438:	80 e0       	ldi	r24, 0x00	; 0
+      return(false);
+    }
+  }
+}
+ 43a:	08 95       	ret
+
+0000043c <TxReceive>:
+  }
+  output.ppmSync = syncTemp;                    // Interrupt macht nichts, so lange nicht zu oft
+}
+
+void TxReceive(uint8_t anz)
+{
+ 43c:	1f 93       	push	r17
+ 43e:	18 2f       	mov	r17, r24
+  if((anz != sizeof(TelemetrieMes))
+ 440:	88 30       	cpi	r24, 0x08	; 8
+ 442:	51 f4       	brne	.+20     	; 0x458 <TxReceive+0x1c>
+ 444:	8a e4       	ldi	r24, 0x4A	; 74
+ 446:	91 e0       	ldi	r25, 0x01	; 1
+ 448:	68 e0       	ldi	r22, 0x08	; 8
+ 44a:	9c d4       	rcall	.+2360   	; 0xd84 <cc2500ReadFIFOBlock>
+ 44c:	88 23       	and	r24, r24
+ 44e:	21 f0       	breq	.+8      	; 0x458 <TxReceive+0x1c>
+ 450:	29 c0       	rjmp	.+82     	; 0x4a4 <TxReceive+0x68>
+      || !cc2500ReadFIFOBlock((uint8_t *)&TelemetrieMes, sizeof(TelemetrieMes)))
+  {
+    while(anz-- > 0)
+      cc2500ReadReg(CC2500_RXFIFO);         // Flush geht nicht weil rx
+ 452:	8f e3       	ldi	r24, 0x3F	; 63
+ 454:	26 d4       	rcall	.+2124   	; 0xca2 <cc2500ReadReg>
+ 456:	11 50       	subi	r17, 0x01	; 1
+void TxReceive(uint8_t anz)
+{
+  if((anz != sizeof(TelemetrieMes))
+      || !cc2500ReadFIFOBlock((uint8_t *)&TelemetrieMes, sizeof(TelemetrieMes)))
+  {
+    while(anz-- > 0)
+ 458:	11 23       	and	r17, r17
+ 45a:	d9 f7       	brne	.-10     	; 0x452 <TxReceive+0x16>
+      cc2500ReadReg(CC2500_RXFIFO);         // Flush geht nicht weil rx
+    if(Telem_error < 0xffff)
+ 45c:	80 91 33 01 	lds	r24, 0x0133
+ 460:	90 91 34 01 	lds	r25, 0x0134
+ 464:	2f ef       	ldi	r18, 0xFF	; 255
+ 466:	8f 3f       	cpi	r24, 0xFF	; 255
+ 468:	92 07       	cpc	r25, r18
+ 46a:	29 f0       	breq	.+10     	; 0x476 <TxReceive+0x3a>
+      ++Telem_error;
+ 46c:	01 96       	adiw	r24, 0x01	; 1
+ 46e:	90 93 34 01 	sts	0x0134, r25
+ 472:	80 93 33 01 	sts	0x0133, r24
+    TelemetrieMes.data.StatusTx.type = 0;
+    TelemetrieMes.data.StatusTx.source = 0;
+ 476:	10 92 4f 01 	sts	0x014F, r1
+    TelemetrieMes.data.StatusTx.Timer33ms = Timer33ms;
+ 47a:	80 91 52 01 	lds	r24, 0x0152
+ 47e:	90 91 53 01 	lds	r25, 0x0153
+ 482:	90 93 4b 01 	sts	0x014B, r25
+ 486:	80 93 4a 01 	sts	0x014A, r24
+    TelemetrieMes.data.StatusTx.Telem_error = Telem_error;
+ 48a:	80 91 33 01 	lds	r24, 0x0133
+ 48e:	90 91 34 01 	lds	r25, 0x0134
+ 492:	90 93 4d 01 	sts	0x014D, r25
+ 496:	80 93 4c 01 	sts	0x014C, r24
+    TelemetrieMes.crcOk = true;
+ 49a:	80 91 51 01 	lds	r24, 0x0151
+ 49e:	80 68       	ori	r24, 0x80	; 128
+ 4a0:	80 93 51 01 	sts	0x0151, r24
+//    TelemetrieMes.date.statusTx.
+  }
+}
+ 4a4:	1f 91       	pop	r17
+ 4a6:	08 95       	ret
+
+000004a8 <calcNewId>:
+
+void calcNewId(void)
+{
+  do
+  {
+    cli();
+ 4a8:	f8 94       	cli
+    eeprom.bind.id += TCNT0 + TCNT1 + TCNT2 + BINDMODEID;
+ 4aa:	56 b5       	in	r21, 0x26	; 38
+ 4ac:	80 91 84 00 	lds	r24, 0x0084
+ 4b0:	90 91 85 00 	lds	r25, 0x0085
+ 4b4:	40 91 b2 00 	lds	r20, 0x00B2
+ 4b8:	20 91 0b 01 	lds	r18, 0x010B
+ 4bc:	30 91 0c 01 	lds	r19, 0x010C
+ 4c0:	82 0f       	add	r24, r18
+ 4c2:	93 1f       	adc	r25, r19
+ 4c4:	87 5f       	subi	r24, 0xF7	; 247
+ 4c6:	9f 4e       	sbci	r25, 0xEF	; 239
+ 4c8:	85 0f       	add	r24, r21
+ 4ca:	91 1d       	adc	r25, r1
+ 4cc:	84 0f       	add	r24, r20
+ 4ce:	91 1d       	adc	r25, r1
+ 4d0:	90 93 0c 01 	sts	0x010C, r25
+ 4d4:	80 93 0b 01 	sts	0x010B, r24
+    sei();
+ 4d8:	78 94       	sei
+    eeprom.bind.step += eeprom.bind.id;
+    eeprom.bind.step &= 0x3f;
+ 4da:	20 91 0d 01 	lds	r18, 0x010D
+ 4de:	28 0f       	add	r18, r24
+ 4e0:	2f 73       	andi	r18, 0x3F	; 63
+ 4e2:	20 93 0d 01 	sts	0x010D, r18
+  }
+  while(!checkId());
+ 4e6:	cf de       	rcall	.-610    	; 0x286 <checkId>
+ 4e8:	88 23       	and	r24, r24
+ 4ea:	f1 f2       	breq	.-68     	; 0x4a8 <calcNewId>
+  eeprom.checksum = calcCheckSum((uint8_t *)&eeprom, sizeof(eeprom) - sizeof(eeprom.checksum));
+ 4ec:	8b e0       	ldi	r24, 0x0B	; 11
+ 4ee:	91 e0       	ldi	r25, 0x01	; 1
+ 4f0:	65 e0       	ldi	r22, 0x05	; 5
+ 4f2:	70 e0       	ldi	r23, 0x00	; 0
+ 4f4:	ec de       	rcall	.-552    	; 0x2ce <calcCheckSum>
+ 4f6:	90 93 11 01 	sts	0x0111, r25
+ 4fa:	80 93 10 01 	sts	0x0110, r24
+  eeprom_write_block(&eeprom, 0, sizeof(eeprom));
+ 4fe:	8b e0       	ldi	r24, 0x0B	; 11
+ 500:	91 e0       	ldi	r25, 0x01	; 1
+ 502:	60 e0       	ldi	r22, 0x00	; 0
+ 504:	70 e0       	ldi	r23, 0x00	; 0
+ 506:	47 e0       	ldi	r20, 0x07	; 7
+ 508:	50 e0       	ldi	r21, 0x00	; 0
+ 50a:	11 d5       	rcall	.+2594   	; 0xf2e <__eewr_block_m48>
+  SET_BIT(state.ledError, L_EEPROM_ERR);
+ 50c:	80 91 3c 01 	lds	r24, 0x013C
+ 510:	84 60       	ori	r24, 0x04	; 4
+ 512:	80 93 3c 01 	sts	0x013C, r24
+}
+ 516:	08 95       	ret
+
+00000518 <main>:
+  SET_BIT(PORTD, INP_D_RXD);                    // Pullup ein
+}
+
+int __attribute__((naked)) main(void)
+{
+  cli();
+ 518:	f8 94       	cli
+  CLKPR = 0;
+ 51a:	10 92 61 00 	sts	0x0061, r1
+  PRR = 0;        // Powerreduction für ADC?
+ 51e:	10 92 64 00 	sts	0x0064, r1
+
+  PORTB = (1<<OUT_B_SPI_SS);
+ 522:	84 e0       	ldi	r24, 0x04	; 4
+ 524:	85 b9       	out	0x05, r24	; 5
+  DDRB = (1<<OUT_B_SPI_MOSI) | (1<<OUT_B_SPI_SCK) | (1<<OUT_B_SPI_SS) | (1 << OUT_B_CTX);
+ 526:	8e e2       	ldi	r24, 0x2E	; 46
+ 528:	84 b9       	out	0x04, r24	; 4
+  PORTB = (1<<OUT_B_SPI_SS)
+ 52a:	85 ed       	ldi	r24, 0xD5	; 213
+ 52c:	85 b9       	out	0x05, r24	; 5
+      | ~((1<<OUT_B_SPI_MOSI) | (1<<OUT_B_SPI_SCK) | (1<<OUT_B_SPI_SS) | (1 << OUT_B_CTX));
+
+  DDRC = (1 << OUT_C_LEDRED) | (1 << OUT_C_LEDGREEN);
+ 52e:	83 e0       	ldi	r24, 0x03	; 3
+ 530:	87 b9       	out	0x07, r24	; 7
+  PORTC = ~((1 << OUT_C_LEDRED) | (1 << OUT_C_LEDGREEN));
+ 532:	8c ef       	ldi	r24, 0xFC	; 252
+ 534:	88 b9       	out	0x08, r24	; 8
+
+  DDRD = (1 << OUT_D_CRX);
+ 536:	80 e2       	ldi	r24, 0x20	; 32
+ 538:	8a b9       	out	0x0a, r24	; 10
+  PORTD = ~(1 << OUT_D_CRX);
+ 53a:	8f ed       	ldi	r24, 0xDF	; 223
+ 53c:	8b b9       	out	0x0b, r24	; 11
+
+  LEDRED_ON;
+ 53e:	40 9a       	sbi	0x08, 0	; 8
+// Timer0 32,768ms für clock
+  TCCR0B = (5 << CS00);                 // clk/1024  -> 0,128 ms
+ 540:	85 e0       	ldi	r24, 0x05	; 5
+ 542:	85 bd       	out	0x25, r24	; 37
+  TCNT0 = 0;
+ 544:	16 bc       	out	0x26, r1	; 38
+  TIFR0 = 0xff;
+ 546:	8f ef       	ldi	r24, 0xFF	; 255
+ 548:	85 bb       	out	0x15, r24	; 21
+  TIMSK0 = 0;
+ 54a:	10 92 6e 00 	sts	0x006E, r1
+
+  wdt_enable(WDTO_500MS);
+ 54e:	2d e0       	ldi	r18, 0x0D	; 13
+ 550:	88 e1       	ldi	r24, 0x18	; 24
+ 552:	90 e0       	ldi	r25, 0x00	; 0
+ 554:	0f b6       	in	r0, 0x3f	; 63
+ 556:	f8 94       	cli
+ 558:	a8 95       	wdr
+ 55a:	80 93 60 00 	sts	0x0060, r24
+ 55e:	0f be       	out	0x3f, r0	; 63
+ 560:	20 93 60 00 	sts	0x0060, r18
+
+  EICRA = (1 << ISC01);                       // int0 bei fallender Flanke
+ 564:	82 e0       	ldi	r24, 0x02	; 2
+ 566:	80 93 69 00 	sts	0x0069, r24
+  EIMSK = 0;                               // Achtung cc2500 gibt hier Takt aus per default
+ 56a:	1d ba       	out	0x1d, r1	; 29
+
+  eeprom_read_block(&eeprom, 0, sizeof(eeprom));
+ 56c:	8b e0       	ldi	r24, 0x0B	; 11
+ 56e:	91 e0       	ldi	r25, 0x01	; 1
+ 570:	60 e0       	ldi	r22, 0x00	; 0
+ 572:	70 e0       	ldi	r23, 0x00	; 0
+ 574:	47 e0       	ldi	r20, 0x07	; 7
+ 576:	50 e0       	ldi	r21, 0x00	; 0
+ 578:	cb d4       	rcall	.+2454   	; 0xf10 <__eerd_block_m48>
+  if(!checkId() || (eeprom.checksum !=
+ 57a:	85 de       	rcall	.-758    	; 0x286 <checkId>
+ 57c:	88 23       	and	r24, r24
+ 57e:	61 f0       	breq	.+24     	; 0x598 <main+0x80>
+ 580:	00 91 10 01 	lds	r16, 0x0110
+ 584:	10 91 11 01 	lds	r17, 0x0111
+ 588:	8b e0       	ldi	r24, 0x0B	; 11
+ 58a:	91 e0       	ldi	r25, 0x01	; 1
+ 58c:	65 e0       	ldi	r22, 0x05	; 5
+ 58e:	70 e0       	ldi	r23, 0x00	; 0
+ 590:	9e de       	rcall	.-708    	; 0x2ce <calcCheckSum>
+ 592:	08 17       	cp	r16, r24
+ 594:	19 07       	cpc	r17, r25
+ 596:	09 f0       	breq	.+2      	; 0x59a <main+0x82>
+            calcCheckSum((uint8_t *)&eeprom, sizeof(eeprom) - sizeof(eeprom.checksum))))
+    calcNewId();
+ 598:	87 df       	rcall	.-242    	; 0x4a8 <calcNewId>
+  cc2500_Init(eeprom.power);
+ 59a:	80 91 0e 01 	lds	r24, 0x010E
+ 59e:	4f d4       	rcall	.+2206   	; 0xe3e <cc2500_Init>
+  if(!checkcc2500())
+ 5a0:	0f d4       	rcall	.+2078   	; 0xdc0 <checkcc2500>
+ 5a2:	88 23       	and	r24, r24
+ 5a4:	29 f4       	brne	.+10     	; 0x5b0 <main+0x98>
+    SET_BIT(state.ledError, L_INIT_ERROR);
+ 5a6:	80 91 3c 01 	lds	r24, 0x013C
+ 5aa:	80 68       	ori	r24, 0x80	; 128
+ 5ac:	80 93 3c 01 	sts	0x013C, r24
+  cc2500WriteReg(CC2500_SYNC0,(unsigned char)eeprom.bind.id);
+ 5b0:	85 e0       	ldi	r24, 0x05	; 5
+ 5b2:	60 91 0b 01 	lds	r22, 0x010B
+ 5b6:	7a d3       	rcall	.+1780   	; 0xcac <cc2500WriteReg>
+  cc2500WriteReg(CC2500_SYNC1,(unsigned char)(eeprom.bind.id >> 8));
+ 5b8:	60 91 0b 01 	lds	r22, 0x010B
+ 5bc:	70 91 0c 01 	lds	r23, 0x010C
+ 5c0:	67 2f       	mov	r22, r23
+ 5c2:	77 27       	eor	r23, r23
+ 5c4:	84 e0       	ldi	r24, 0x04	; 4
+ 5c6:	72 d3       	rcall	.+1764   	; 0xcac <cc2500WriteReg>
+  if(eeprom.ccaOff)
+ 5c8:	80 91 0f 01 	lds	r24, 0x010F
+ 5cc:	88 23       	and	r24, r24
+ 5ce:	19 f0       	breq	.+6      	; 0x5d6 <main+0xbe>
+    cc2500WriteReg(CC2500_MCSM1, SMARTRF_SETTING_MCSM1 & ~0x30);
+ 5d0:	87 e1       	ldi	r24, 0x17	; 23
+ 5d2:	60 e0       	ldi	r22, 0x00	; 0
+ 5d4:	02 c0       	rjmp	.+4      	; 0x5da <main+0xc2>
+  else
+    cc2500WriteReg(CC2500_MCSM1, (SMARTRF_SETTING_MCSM1 | 0x10) & ~0x20);
+ 5d6:	87 e1       	ldi	r24, 0x17	; 23
+ 5d8:	60 e1       	ldi	r22, 0x10	; 16
+ 5da:	68 d3       	rcall	.+1744   	; 0xcac <cc2500WriteReg>
+  set_sleep_mode(SLEEP_MODE_IDLE);
+ 5dc:	83 b7       	in	r24, 0x33	; 51
+ 5de:	81 7f       	andi	r24, 0xF1	; 241
+ 5e0:	83 bf       	out	0x33, r24	; 51
+  USART_Init(BRATE);
+ 5e2:	81 e0       	ldi	r24, 0x01	; 1
+ 5e4:	90 e0       	ldi	r25, 0x00	; 0
+ 5e6:	ba de       	rcall	.-652    	; 0x35c <USART_Init>
+
+  wdt_enable(WDTO_30MS);
+ 5e8:	29 e0       	ldi	r18, 0x09	; 9
+ 5ea:	88 e1       	ldi	r24, 0x18	; 24
+ 5ec:	90 e0       	ldi	r25, 0x00	; 0
+ 5ee:	0f b6       	in	r0, 0x3f	; 63
+ 5f0:	f8 94       	cli
+ 5f2:	a8 95       	wdr
+ 5f4:	80 93 60 00 	sts	0x0060, r24
+ 5f8:	0f be       	out	0x3f, r0	; 63
+ 5fa:	20 93 60 00 	sts	0x0060, r18
+
+// Timer1 8MHz   PPM Capture
+  TCCR1A = 0;
+ 5fe:	10 92 80 00 	sts	0x0080, r1
+  TCCR1B = (1 << ICNC1) | (1 << CS10);      // 8MHz, Input Capture Noise Canceler, falling edge
+ 602:	81 e8       	ldi	r24, 0x81	; 129
+ 604:	80 93 81 00 	sts	0x0081, r24
+  TCNT1 = 0;
+ 608:	10 92 85 00 	sts	0x0085, r1
+ 60c:	10 92 84 00 	sts	0x0084, r1
+  TIFR1 = 0xff;
+ 610:	2f ef       	ldi	r18, 0xFF	; 255
+ 612:	26 bb       	out	0x16, r18	; 22
+  TIMSK1 = (1 << ICIE1);
+ 614:	80 e2       	ldi	r24, 0x20	; 32
+ 616:	80 93 6f 00 	sts	0x006F, r24
+
+// Timer2  für Statemachine
+  TCCR2A = (2 << WGM20);                        //  CTC mode
+ 61a:	92 e0       	ldi	r25, 0x02	; 2
+ 61c:	90 93 b0 00 	sts	0x00B0, r25
+  TCCR2B = (6 << CS20);                         // clk/256
+ 620:	86 e0       	ldi	r24, 0x06	; 6
+ 622:	80 93 b1 00 	sts	0x00B1, r24
+  OCR2A  = CHANTIME;
+ 626:	82 e4       	ldi	r24, 0x42	; 66
+ 628:	80 93 b3 00 	sts	0x00B3, r24
+  TCNT2 = 0;
+ 62c:	10 92 b2 00 	sts	0x00B2, r1
+  TIFR2  = 0xff;
+ 630:	27 bb       	out	0x17, r18	; 23
+  TIMSK2 = (1 << OCIE2A);
+ 632:	90 93 70 00 	sts	0x0070, r25
+
+  LEDRED_OFF;
+ 636:	40 98       	cbi	0x08, 0	; 8
+  LEDGREEN_ON;
+ 638:	41 9a       	sbi	0x08, 1	; 8
+
+#ifdef DEBUG
+  testsperre = 0xff;
+#endif
+
+  sei();
+ 63a:	78 94       	sei
+  while(1){
+    if(TIFR0 & (1 << TOV0))
+    {
+      ++Timer33ms;
+//      SET_BIT(TIFR0, TOV0);
+      TIFR0 = (1 << TOV0);
+ 63c:	01 e0       	ldi	r16, 0x01	; 1
+  testsperre = 0xff;
+#endif
+
+  sei();
+  while(1){
+    if(TIFR0 & (1 << TOV0))
+ 63e:	a8 9b       	sbis	0x15, 0	; 21
+ 640:	0c c0       	rjmp	.+24     	; 0x65a <main+0x142>
+    {
+      ++Timer33ms;
+ 642:	80 91 52 01 	lds	r24, 0x0152
+ 646:	90 91 53 01 	lds	r25, 0x0153
+ 64a:	01 96       	adiw	r24, 0x01	; 1
+ 64c:	90 93 53 01 	sts	0x0153, r25
+ 650:	80 93 52 01 	sts	0x0152, r24
+//      SET_BIT(TIFR0, TOV0);
+      TIFR0 = (1 << TOV0);
+ 654:	05 bb       	out	0x15, r16	; 21
+      set_led();
+ 656:	d0 dd       	rcall	.-1120   	; 0x1f8 <set_led>
+      chkFailSafe();
+ 658:	71 de       	rcall	.-798    	; 0x33c <chkFailSafe>
+    }
+    sendTelemetrie2UART();           // Hier ist am meisten Zeit
+ 65a:	56 de       	rcall	.-852    	; 0x308 <sendTelemetrie2UART>
+
+//    if(state.InterruptAlive)
+    {
+//      state.InterruptAlive = false;
+      if(Heartbeat)
+ 65c:	80 91 54 01 	lds	r24, 0x0154
+ 660:	88 23       	and	r24, r24
+ 662:	19 f0       	breq	.+6      	; 0x66a <main+0x152>
+      {
+        wdt_reset();
+ 664:	a8 95       	wdr
+        Heartbeat = false;
+ 666:	10 92 54 01 	sts	0x0154, r1
+      }
+    }
+    sleep_mode();                   //    warten bis Timer (Interrupt)
+ 66a:	83 b7       	in	r24, 0x33	; 51
+ 66c:	81 60       	ori	r24, 0x01	; 1
+ 66e:	83 bf       	out	0x33, r24	; 51
+ 670:	88 95       	sleep
+ 672:	83 b7       	in	r24, 0x33	; 51
+ 674:	8e 7f       	andi	r24, 0xFE	; 254
+ 676:	83 bf       	out	0x33, r24	; 51
+ 678:	e2 cf       	rjmp	.-60     	; 0x63e <main+0x126>
+
+0000067a <setNextChanRx>:
+  cc2500CommandStrobe(CC2500_SRX);
+}
+
+void setNextChanRx(void)                      // Kanal schreiben und nach RX
+{
+  RES_BIT(PORTB, OUT_B_CTX);
+ 67a:	29 98       	cbi	0x05, 1	; 5
+  SET_BIT(PORTD, OUT_D_CRX);		      // Auf Empfang umschalten
+ 67c:	5d 9a       	sbi	0x0b, 5	; 11
+  RES_BIT(EIMSK, INT0);                    // INT0 aus
+ 67e:	e8 98       	cbi	0x1d, 0	; 29
+  if(PIND & (1<<INP_D_CC2500_GDO0))
+ 680:	4a 9b       	sbis	0x09, 2	; 9
+ 682:	05 c0       	rjmp	.+10     	; 0x68e <setNextChanRx+0x14>
+    SET_BIT(state.ledError, L_NOT_READY);
+ 684:	80 91 3c 01 	lds	r24, 0x013C
+ 688:	80 64       	ori	r24, 0x40	; 64
+ 68a:	80 93 3c 01 	sts	0x013C, r24
+  setNextChan();
+ 68e:	74 de       	rcall	.-792    	; 0x378 <setNextChan>
+
+  if(!eeprom.ccaOff && !state.ccaCount)
+ 690:	80 91 0f 01 	lds	r24, 0x010F
+ 694:	88 23       	and	r24, r24
+ 696:	39 f4       	brne	.+14     	; 0x6a6 <setNextChanRx+0x2c>
+ 698:	80 91 3d 01 	lds	r24, 0x013D
+ 69c:	88 23       	and	r24, r24
+ 69e:	19 f4       	brne	.+6      	; 0x6a6 <setNextChanRx+0x2c>
+    cc2500WriteReg(CC2500_MCSM1, (SMARTRF_SETTING_MCSM1 | 0x10) & ~0x20);  // ein
+ 6a0:	87 e1       	ldi	r24, 0x17	; 23
+ 6a2:	60 e1       	ldi	r22, 0x10	; 16
+ 6a4:	03 d3       	rcall	.+1542   	; 0xcac <cc2500WriteReg>
+
+  cc2500CommandStrobe(CC2500_SFTX);       // Flush TX
+ 6a6:	8b e3       	ldi	r24, 0x3B	; 59
+ 6a8:	45 d3       	rcall	.+1674   	; 0xd34 <cc2500CommandStrobe>
+  cc2500CommandStrobe(CC2500_SRX);
+ 6aa:	84 e3       	ldi	r24, 0x34	; 52
+ 6ac:	43 d3       	rcall	.+1670   	; 0xd34 <cc2500CommandStrobe>
+}
+ 6ae:	08 95       	ret
+
+000006b0 <setRx>:
+  cc2500WriteRegCheckIdle(CC2500_CHANNR, tempChan);
+}
+
+void setRx(void)                      // nach RX
+{
+  RES_BIT(PORTB, OUT_B_CTX);
+ 6b0:	29 98       	cbi	0x05, 1	; 5
+  SET_BIT(PORTD, OUT_D_CRX);		      // Auf Empfang umschalten
+ 6b2:	5d 9a       	sbi	0x0b, 5	; 11
+  RES_BIT(EIMSK, INT0);                    // INT0 aus
+ 6b4:	e8 98       	cbi	0x1d, 0	; 29
+  if(PIND & (1<<INP_D_CC2500_GDO0))
+ 6b6:	4a 9b       	sbis	0x09, 2	; 9
+ 6b8:	05 c0       	rjmp	.+10     	; 0x6c4 <setRx+0x14>
+    SET_BIT(state.ledError, L_NOT_READY);
+ 6ba:	80 91 3c 01 	lds	r24, 0x013C
+ 6be:	80 64       	ori	r24, 0x40	; 64
+ 6c0:	80 93 3c 01 	sts	0x013C, r24
+  cc2500CommandStrobe(CC2500_SFTX);       // Flush TX
+ 6c4:	8b e3       	ldi	r24, 0x3B	; 59
+ 6c6:	36 d3       	rcall	.+1644   	; 0xd34 <cc2500CommandStrobe>
+  cc2500CommandStrobe(CC2500_SRX);
+ 6c8:	84 e3       	ldi	r24, 0x34	; 52
+ 6ca:	34 d3       	rcall	.+1640   	; 0xd34 <cc2500CommandStrobe>
+}
+ 6cc:	08 95       	ret
+
+000006ce <setNext>:
+  SET_BIT(state.ledError, L_EEPROM_ERR);
+}
+
+void setNext(void)
+{
+  if(!state.txCount)
+ 6ce:	80 91 3b 01 	lds	r24, 0x013B
+ 6d2:	88 23       	and	r24, r24
+ 6d4:	19 f4       	brne	.+6      	; 0x6dc <setNext+0xe>
+  {
+    calibrateSlow();              // wechselt auf idle
+ 6d6:	20 d3       	rcall	.+1600   	; 0xd18 <calibrateSlow>
+//    gotoIdle();                   // Wenn Daten empfangen auf Idle wechseln
+//    cc2500WriteRegCheckIdle(CC2500_PKTLEN, sizeof(Telemetrie));  Ist gleich wie MessageData
+    setRx();                     // Frequenz nicht wechseln
+ 6d8:	eb df       	rcall	.-42     	; 0x6b0 <setRx>
+ 6da:	08 95       	ret
+  }
+  else
+    setNextChanRx();
+ 6dc:	ce df       	rcall	.-100    	; 0x67a <setNextChanRx>
+ 6de:	08 95       	ret
+
+000006e0 <tx_error>:
+}
+
+void tx_error(void)       // Achtung bei CCA
+{
+//  if(eeprom.ccaOff)
+    SET_BIT(state.ledError,L_NOT_TX);
+ 6e0:	80 91 3c 01 	lds	r24, 0x013C
+ 6e4:	80 61       	ori	r24, 0x10	; 16
+ 6e6:	80 93 3c 01 	sts	0x013C, r24
+//    if(state.ccaCount >= 5)
+//    {
+//      cc2500WriteRegCheckIdle(CC2500_MCSM1, SMARTRF_SETTING_MCSM1 & ~0x30);  // aus
+//    }
+//  }
+  setNext();                            // Empfang ein
+ 6ea:	f1 df       	rcall	.-30     	; 0x6ce <setNext>
+}
+ 6ec:	08 95       	ret
+
+000006ee <copyTx>:
+  else
+    return(0);
+}*/
+
+void copyTx(bool lastFlag, uint8_t type)
+{
+ 6ee:	a6 e0       	ldi	r26, 0x06	; 6
+ 6f0:	b0 e0       	ldi	r27, 0x00	; 0
+ 6f2:	ec e7       	ldi	r30, 0x7C	; 124
+ 6f4:	f3 e0       	ldi	r31, 0x03	; 3
+ 6f6:	df c3       	rjmp	.+1982   	; 0xeb6 <__prologue_saves__+0x14>
+ 6f8:	08 2f       	mov	r16, r24
+ 6fa:	16 2f       	mov	r17, r22
+  MessageChan mes;
+  uint8_t i;
+  uint16_t high;
+  high = 0;
+  uint8_t ofs = (type & 0x3) * 4;
+ 6fc:	86 2f       	mov	r24, r22
+ 6fe:	88 0f       	add	r24, r24
+ 700:	88 0f       	add	r24, r24
+ 702:	8c 70       	andi	r24, 0x0C	; 12
+ 704:	a0 e0       	ldi	r26, 0x00	; 0
+ 706:	b0 e0       	ldi	r27, 0x00	; 0
+ 708:	60 e0       	ldi	r22, 0x00	; 0
+ 70a:	70 e0       	ldi	r23, 0x00	; 0
+ 70c:	e8 2e       	mov	r14, r24
+ 70e:	ff 24       	eor	r15, r15
+    uint16_t temp;
+    do
+      temp = output.chan_1us[ofs + i];
+    while(temp != output.chan_1us[ofs + i]);      // Testen ob Interrupt es verändert hat
+    uint8_t temp_low = temp & 0xff;
+    mes.chan_1uslow[i] = temp_low;
+ 710:	6e 01       	movw	r12, r28
+ 712:	08 94       	sec
+ 714:	c1 1c       	adc	r12, r1
+ 716:	d1 1c       	adc	r13, r1
+{
+  MessageChan mes;
+  uint8_t i;
+  uint16_t high;
+  high = 0;
+  uint8_t ofs = (type & 0x3) * 4;
+ 718:	fb 01       	movw	r30, r22
+ 71a:	ee 0d       	add	r30, r14
+ 71c:	ff 1d       	adc	r31, r15
+  mes.type = type;
+  for(i = 0;i < 4;++i)
+  {
+    uint16_t temp;
+    do
+      temp = output.chan_1us[ofs + i];
+ 71e:	ee 0f       	add	r30, r30
+ 720:	ff 1f       	adc	r31, r31
+ 722:	ee 5e       	subi	r30, 0xEE	; 238
+ 724:	fe 4f       	sbci	r31, 0xFE	; 254
+ 726:	40 81       	ld	r20, Z
+ 728:	51 81       	ldd	r21, Z+1	; 0x01
+    while(temp != output.chan_1us[ofs + i]);      // Testen ob Interrupt es verändert hat
+ 72a:	80 81       	ld	r24, Z
+ 72c:	91 81       	ldd	r25, Z+1	; 0x01
+ 72e:	48 17       	cp	r20, r24
+ 730:	59 07       	cpc	r21, r25
+ 732:	91 f7       	brne	.-28     	; 0x718 <copyTx+0x2a>
+    uint8_t temp_low = temp & 0xff;
+    mes.chan_1uslow[i] = temp_low;
+ 734:	f6 01       	movw	r30, r12
+ 736:	e6 0f       	add	r30, r22
+ 738:	f7 1f       	adc	r31, r23
+ 73a:	40 83       	st	Z, r20
+    uint8_t temp_high = (temp >> 8) & 0x7;      // auf 3 Bits beschränken
+    high <<= 3;
+ 73c:	9d 01       	movw	r18, r26
+ 73e:	83 e0       	ldi	r24, 0x03	; 3
+ 740:	22 0f       	add	r18, r18
+ 742:	33 1f       	adc	r19, r19
+ 744:	8a 95       	dec	r24
+ 746:	e1 f7       	brne	.-8      	; 0x740 <copyTx+0x52>
+    high |= temp_high;
+ 748:	85 2f       	mov	r24, r21
+ 74a:	99 27       	eor	r25, r25
+ 74c:	87 70       	andi	r24, 0x07	; 7
+ 74e:	a8 2f       	mov	r26, r24
+ 750:	b0 e0       	ldi	r27, 0x00	; 0
+ 752:	a2 2b       	or	r26, r18
+ 754:	b3 2b       	or	r27, r19
+ 756:	6f 5f       	subi	r22, 0xFF	; 255
+ 758:	7f 4f       	sbci	r23, 0xFF	; 255
+  uint16_t high;
+  high = 0;
+  uint8_t ofs = (type & 0x3) * 4;
+  mes.rts = lastFlag;
+  mes.type = type;
+  for(i = 0;i < 4;++i)
+ 75a:	64 30       	cpi	r22, 0x04	; 4
+ 75c:	71 05       	cpc	r23, r1
+ 75e:	e1 f6       	brne	.-72     	; 0x718 <copyTx+0x2a>
+    mes.chan_1uslow[i] = temp_low;
+    uint8_t temp_high = (temp >> 8) & 0x7;      // auf 3 Bits beschränken
+    high <<= 3;
+    high |= temp_high;
+  }
+  mes.chan_1ushigh = high;
+ 760:	ad 83       	std	Y+5, r26	; 0x05
+ 762:	8b 2f       	mov	r24, r27
+ 764:	8f 70       	andi	r24, 0x0F	; 15
+  uint8_t i;
+  uint16_t high;
+  high = 0;
+  uint8_t ofs = (type & 0x3) * 4;
+  mes.rts = lastFlag;
+  mes.type = type;
+ 766:	17 70       	andi	r17, 0x07	; 7
+ 768:	12 95       	swap	r17
+ 76a:	10 7f       	andi	r17, 0xF0	; 240
+  MessageChan mes;
+  uint8_t i;
+  uint16_t high;
+  high = 0;
+  uint8_t ofs = (type & 0x3) * 4;
+  mes.rts = lastFlag;
+ 76c:	07 95       	ror	r16
+ 76e:	00 27       	eor	r16, r16
+ 770:	07 95       	ror	r16
+ 772:	18 2b       	or	r17, r24
+ 774:	10 2b       	or	r17, r16
+ 776:	1e 83       	std	Y+6, r17	; 0x06
+    uint8_t temp_high = (temp >> 8) & 0x7;      // auf 3 Bits beschränken
+    high <<= 3;
+    high |= temp_high;
+  }
+  mes.chan_1ushigh = high;
+  if((cc2500WriteFIFOBlock((uint8_t *)&mes, sizeof(MessageChan)) & CC2500_STATUS_STATE_BM) < CC2500_STATE_TX)
+ 778:	c6 01       	movw	r24, r12
+ 77a:	66 e0       	ldi	r22, 0x06	; 6
+ 77c:	ec d2       	rcall	.+1496   	; 0xd56 <cc2500WriteFIFOBlock>
+ 77e:	90 e0       	ldi	r25, 0x00	; 0
+ 780:	80 77       	andi	r24, 0x70	; 112
+ 782:	90 70       	andi	r25, 0x00	; 0
+ 784:	80 97       	sbiw	r24, 0x20	; 32
+ 786:	14 f4       	brge	.+4      	; 0x78c <copyTx+0x9e>
+    tx_error();
+ 788:	ab df       	rcall	.-170    	; 0x6e0 <tx_error>
+ 78a:	01 c0       	rjmp	.+2      	; 0x78e <copyTx+0xa0>
+  else
+    tx_ok();
+ 78c:	ae dd       	rcall	.-1188   	; 0x2ea <tx_ok>
+}
+ 78e:	26 96       	adiw	r28, 0x06	; 6
+ 790:	e8 e0       	ldi	r30, 0x08	; 8
+ 792:	ad c3       	rjmp	.+1882   	; 0xeee <__epilogue_restores__+0x14>
+
+00000794 <TxSendcommand>:
+  if(state.ccaCount > 0)
+    --state.ccaCount;
+}
+
+void TxSendcommand(MessageData *mes)
+{
+ 794:	a2 e0       	ldi	r26, 0x02	; 2
+ 796:	b0 e0       	ldi	r27, 0x00	; 0
+ 798:	ef ec       	ldi	r30, 0xCF	; 207
+ 79a:	f3 e0       	ldi	r31, 0x03	; 3
+ 79c:	92 c3       	rjmp	.+1828   	; 0xec2 <__prologue_saves__+0x20>
+ 79e:	9a 83       	std	Y+2, r25	; 0x02
+ 7a0:	89 83       	std	Y+1, r24	; 0x01
+  if((cc2500WriteFIFOBlock((uint8_t *)&mes, sizeof(MessageData)) & CC2500_STATUS_STATE_BM) < CC2500_STATE_TX)
+ 7a2:	ce 01       	movw	r24, r28
+ 7a4:	01 96       	adiw	r24, 0x01	; 1
+ 7a6:	66 e0       	ldi	r22, 0x06	; 6
+ 7a8:	d6 d2       	rcall	.+1452   	; 0xd56 <cc2500WriteFIFOBlock>
+ 7aa:	90 e0       	ldi	r25, 0x00	; 0
+ 7ac:	80 77       	andi	r24, 0x70	; 112
+ 7ae:	90 70       	andi	r25, 0x00	; 0
+ 7b0:	80 97       	sbiw	r24, 0x20	; 32
+ 7b2:	14 f4       	brge	.+4      	; 0x7b8 <TxSendcommand+0x24>
+    tx_error();
+ 7b4:	95 df       	rcall	.-214    	; 0x6e0 <tx_error>
+ 7b6:	01 c0       	rjmp	.+2      	; 0x7ba <TxSendcommand+0x26>
+  else
+    tx_ok();
+ 7b8:	98 dd       	rcall	.-1232   	; 0x2ea <tx_ok>
+}
+ 7ba:	22 96       	adiw	r28, 0x02	; 2
+ 7bc:	e2 e0       	ldi	r30, 0x02	; 2
+ 7be:	9d c3       	rjmp	.+1850   	; 0xefa <__epilogue_restores__+0x20>
+
+000007c0 <TxSendData>:
+
+void TxSendData(bool lastFlag)
+{
+ 7c0:	a6 e0       	ldi	r26, 0x06	; 6
+ 7c2:	b0 e0       	ldi	r27, 0x00	; 0
+ 7c4:	e5 ee       	ldi	r30, 0xE5	; 229
+ 7c6:	f3 e0       	ldi	r31, 0x03	; 3
+ 7c8:	7c c3       	rjmp	.+1784   	; 0xec2 <__prologue_saves__+0x20>
+  MessageCommand mes;
+
+  mes.type = 0x7;               // Kommando
+ 7ca:	9e 81       	ldd	r25, Y+6	; 0x06
+ 7cc:	90 67       	ori	r25, 0x70	; 112
+  mes.rts = lastFlag;
+ 7ce:	28 2f       	mov	r18, r24
+ 7d0:	27 95       	ror	r18
+ 7d2:	22 27       	eor	r18, r18
+ 7d4:	27 95       	ror	r18
+ 7d6:	9f 77       	andi	r25, 0x7F	; 127
+ 7d8:	92 2b       	or	r25, r18
+ 7da:	9e 83       	std	Y+6, r25	; 0x06
+
+  if(state.SetFaileSafe)
+ 7dc:	80 91 36 01 	lds	r24, 0x0136
+ 7e0:	88 23       	and	r24, r24
+ 7e2:	51 f0       	breq	.+20     	; 0x7f8 <TxSendData+0x38>
+  {
+    mes.command = 1;
+ 7e4:	81 e0       	ldi	r24, 0x01	; 1
+ 7e6:	90 e0       	ldi	r25, 0x00	; 0
+ 7e8:	9d 83       	std	Y+5, r25	; 0x05
+ 7ea:	8c 83       	std	Y+4, r24	; 0x04
+    TxSendcommand((MessageData *)&mes);                 // Failsafe- Position auf aktuelle Position setzen
+ 7ec:	ce 01       	movw	r24, r28
+ 7ee:	01 96       	adiw	r24, 0x01	; 1
+ 7f0:	d1 df       	rcall	.-94     	; 0x794 <TxSendcommand>
+    state.SetFaileSafe = false;
+ 7f2:	10 92 36 01 	sts	0x0136, r1
+ 7f6:	15 c0       	rjmp	.+42     	; 0x822 <TxSendData+0x62>
+  }
+  else
+  {
+    if(state.newCommand)                                // Kommando vom UART
+ 7f8:	80 91 38 01 	lds	r24, 0x0138
+ 7fc:	88 23       	and	r24, r24
+ 7fe:	61 f0       	breq	.+24     	; 0x818 <TxSendData+0x58>
+    {
+      sendMes.Uart.rts = lastFlag;
+ 800:	80 91 48 01 	lds	r24, 0x0148
+ 804:	8f 77       	andi	r24, 0x7F	; 127
+ 806:	82 2b       	or	r24, r18
+ 808:	80 93 48 01 	sts	0x0148, r24
+      TxSendcommand(&sendMes);
+ 80c:	83 e4       	ldi	r24, 0x43	; 67
+ 80e:	91 e0       	ldi	r25, 0x01	; 1
+ 810:	c1 df       	rcall	.-126    	; 0x794 <TxSendcommand>
+      state.newCommand = false;
+ 812:	10 92 38 01 	sts	0x0138, r1
+ 816:	05 c0       	rjmp	.+10     	; 0x822 <TxSendData+0x62>
+    }
+    else
+    {
+      mes.command = 0;                                  // Dummy
+ 818:	1d 82       	std	Y+5, r1	; 0x05
+ 81a:	1c 82       	std	Y+4, r1	; 0x04
+      TxSendcommand((MessageData *)&mes);
+ 81c:	ce 01       	movw	r24, r28
+ 81e:	01 96       	adiw	r24, 0x01	; 1
+ 820:	b9 df       	rcall	.-142    	; 0x794 <TxSendcommand>
+    }
+  }
+}
+ 822:	26 96       	adiw	r28, 0x06	; 6
+ 824:	e2 e0       	ldi	r30, 0x02	; 2
+ 826:	69 c3       	rjmp	.+1746   	; 0xefa <__epilogue_restores__+0x20>
+
+00000828 <TxSend>:
+  else
+    tx_ok();
+}
+
+void TxSend(bool lastFlag)
+{
+ 828:	1f 93       	push	r17
+ 82a:	98 2f       	mov	r25, r24
+  static uint8_t groupBackup;
+
+  uint8_t syncTemp = output.ppmSync;
+ 82c:	10 91 32 01 	lds	r17, 0x0132
+  if(syncTemp == 4)
+ 830:	14 30       	cpi	r17, 0x04	; 4
+ 832:	21 f4       	brne	.+8      	; 0x83c <TxSend+0x14>
+  {                                                   // untere Gruppe senden
+//    UDR0 = 'B';                                       // Puls für Sender zum Synchronisieren
+    copyTx(lastFlag, 4);
+ 834:	64 e0       	ldi	r22, 0x04	; 4
+ 836:	5b df       	rcall	.-330    	; 0x6ee <copyTx>
+ 838:	13 e0       	ldi	r17, 0x03	; 3
+ 83a:	2c c0       	rjmp	.+88     	; 0x894 <TxSend+0x6c>
+    --syncTemp;
+  }
+  else if(syncTemp != 0)
+ 83c:	11 23       	and	r17, r17
+ 83e:	69 f0       	breq	.+26     	; 0x85a <TxSend+0x32>
+  {                                                    // obere Gruppe senden
+    copyTx(lastFlag, 4 - syncTemp);
+ 840:	64 e0       	ldi	r22, 0x04	; 4
+ 842:	61 1b       	sub	r22, r17
+ 844:	54 df       	rcall	.-344    	; 0x6ee <copyTx>
+    if((syncTemp == 3) && (state.maxChan <= 8))
+ 846:	13 30       	cpi	r17, 0x03	; 3
+ 848:	31 f4       	brne	.+12     	; 0x856 <TxSend+0x2e>
+ 84a:	80 91 3a 01 	lds	r24, 0x013A
+ 84e:	89 30       	cpi	r24, 0x09	; 9
+ 850:	10 f4       	brcc	.+4      	; 0x856 <TxSend+0x2e>
+ 852:	10 e0       	ldi	r17, 0x00	; 0
+ 854:	1f c0       	rjmp	.+62     	; 0x894 <TxSend+0x6c>
+      syncTemp = 0;                             // nur untere 8 Kanäle ausgeben
+    else
+      --syncTemp;
+ 856:	11 50       	subi	r17, 0x01	; 1
+ 858:	1d c0       	rjmp	.+58     	; 0x894 <TxSend+0x6c>
+  }
+  else if(state.SetFaileSafe || state.newCommand)
+ 85a:	80 91 36 01 	lds	r24, 0x0136
+ 85e:	88 23       	and	r24, r24
+ 860:	21 f4       	brne	.+8      	; 0x86a <TxSend+0x42>
+ 862:	80 91 38 01 	lds	r24, 0x0138
+ 866:	88 23       	and	r24, r24
+ 868:	19 f0       	breq	.+6      	; 0x870 <TxSend+0x48>
+  {
+    TxSendData(lastFlag);
+ 86a:	89 2f       	mov	r24, r25
+ 86c:	a9 df       	rcall	.-174    	; 0x7c0 <TxSendData>
+ 86e:	12 c0       	rjmp	.+36     	; 0x894 <TxSend+0x6c>
+  }
+  else 
+  {
+    copyTx(lastFlag, groupBackup);
+ 870:	89 2f       	mov	r24, r25
+ 872:	60 91 01 01 	lds	r22, 0x0101
+ 876:	3b df       	rcall	.-394    	; 0x6ee <copyTx>
+    ++groupBackup;
+ 878:	90 91 01 01 	lds	r25, 0x0101
+ 87c:	9f 5f       	subi	r25, 0xFF	; 255
+ 87e:	90 93 01 01 	sts	0x0101, r25
+    if(state.maxChan <= 8)
+ 882:	80 91 3a 01 	lds	r24, 0x013A
+ 886:	89 30       	cpi	r24, 0x09	; 9
+ 888:	10 f4       	brcc	.+4      	; 0x88e <TxSend+0x66>
+      groupBackup &= 0x1;
+ 88a:	91 70       	andi	r25, 0x01	; 1
+ 88c:	01 c0       	rjmp	.+2      	; 0x890 <TxSend+0x68>
+    else
+      groupBackup &= 0x3;
+ 88e:	93 70       	andi	r25, 0x03	; 3
+ 890:	90 93 01 01 	sts	0x0101, r25
+  }
+  output.ppmSync = syncTemp;                    // Interrupt macht nichts, so lange nicht zu oft
+ 894:	10 93 32 01 	sts	0x0132, r17
+}
+ 898:	1f 91       	pop	r17
+ 89a:	08 95       	ret
+
+0000089c <__vector_1>:
+  Heartbeat = true;
+}
+
+//uint8_t tes;
+ISR(INT0_vect, ISR_NOBLOCK)                // Wird ausgelöst wenn Senden fertig
+{
+ 89c:	78 94       	sei
+ 89e:	1f 92       	push	r1
+ 8a0:	0f 92       	push	r0
+ 8a2:	0f b6       	in	r0, 0x3f	; 63
+ 8a4:	0f 92       	push	r0
+ 8a6:	11 24       	eor	r1, r1
+ 8a8:	2f 93       	push	r18
+ 8aa:	3f 93       	push	r19
+ 8ac:	4f 93       	push	r20
+ 8ae:	5f 93       	push	r21
+ 8b0:	6f 93       	push	r22
+ 8b2:	7f 93       	push	r23
+ 8b4:	8f 93       	push	r24
+ 8b6:	9f 93       	push	r25
+ 8b8:	af 93       	push	r26
+ 8ba:	bf 93       	push	r27
+ 8bc:	ef 93       	push	r30
+ 8be:	ff 93       	push	r31
+  RES_BIT(EIMSK, INT0);                    // INT0 aus
+ 8c0:	e8 98       	cbi	0x1d, 0	; 29
+  RES_BIT(TIMSK2, OCIE2A);                 // Timerinterrupt aus
+ 8c2:	80 91 70 00 	lds	r24, 0x0070
+ 8c6:	8d 7f       	andi	r24, 0xFD	; 253
+ 8c8:	80 93 70 00 	sts	0x0070, r24
+  if(InterruptAct)                         // Timerinterrupt ist noch aktiv
+ 8cc:	80 91 49 01 	lds	r24, 0x0149
+ 8d0:	88 23       	and	r24, r24
+ 8d2:	31 f0       	breq	.+12     	; 0x8e0 <__vector_1+0x44>
+  {
+    SET_BIT(state.ledError, L_NOT_RX);     // Ursache kann Capture sein
+ 8d4:	80 91 3c 01 	lds	r24, 0x013C
+ 8d8:	80 62       	ori	r24, 0x20	; 32
+ 8da:	80 93 3c 01 	sts	0x013C, r24
+ 8de:	0e c0       	rjmp	.+28     	; 0x8fc <__vector_1+0x60>
+//    tes = TCNT2;
+  //  if(TCNT2 > CYCLETIME + 10)
+  //    OCR2A = TCNT2 + 2;
+//  RES_BIT(PORTB, OUT_B_CTX);
+//  SET_BIT(PORTD, OUT_D_CRX);
+  setNext();
+ 8e0:	f6 de       	rcall	.-532    	; 0x6ce <setNext>
+  if(TIFR2 & (1 << OCF2A))
+ 8e2:	b9 9b       	sbis	0x17, 1	; 23
+ 8e4:	05 c0       	rjmp	.+10     	; 0x8f0 <__vector_1+0x54>
+    SET_BIT(state.ledError, L_NOT_RX);     // Ursache kann Capture sein
+ 8e6:	80 91 3c 01 	lds	r24, 0x013C
+ 8ea:	80 62       	ori	r24, 0x20	; 32
+ 8ec:	80 93 3c 01 	sts	0x013C, r24
+  cli();
+ 8f0:	f8 94       	cli
+  SET_BIT(TIMSK2, OCIE2A);                 // Timerinterrupt ein
+ 8f2:	80 91 70 00 	lds	r24, 0x0070
+ 8f6:	82 60       	ori	r24, 0x02	; 2
+ 8f8:	80 93 70 00 	sts	0x0070, r24
+}
+ 8fc:	ff 91       	pop	r31
+ 8fe:	ef 91       	pop	r30
+ 900:	bf 91       	pop	r27
+ 902:	af 91       	pop	r26
+ 904:	9f 91       	pop	r25
+ 906:	8f 91       	pop	r24
+ 908:	7f 91       	pop	r23
+ 90a:	6f 91       	pop	r22
+ 90c:	5f 91       	pop	r21
+ 90e:	4f 91       	pop	r20
+ 910:	3f 91       	pop	r19
+ 912:	2f 91       	pop	r18
+ 914:	0f 90       	pop	r0
+ 916:	0f be       	out	0x3f, r0	; 63
+ 918:	0f 90       	pop	r0
+ 91a:	1f 90       	pop	r1
+ 91c:	18 95       	reti
+
+0000091e <setBindMode>:
+  while(!(PINB & (1<<OUT_B_SPI_SS)));
+}
+
+void setBindMode(void)
+{
+  cc2500WriteReg(CC2500_SYNC0, (unsigned char)BINDMODEID);
+ 91e:	85 e0       	ldi	r24, 0x05	; 5
+ 920:	69 e0       	ldi	r22, 0x09	; 9
+ 922:	c4 d1       	rcall	.+904    	; 0xcac <cc2500WriteReg>
+  cc2500WriteReg(CC2500_SYNC1, (unsigned char)(BINDMODEID >> 8));
+ 924:	84 e0       	ldi	r24, 0x04	; 4
+ 926:	60 e1       	ldi	r22, 0x10	; 16
+ 928:	c1 d1       	rcall	.+898    	; 0xcac <cc2500WriteReg>
+  cc2500WriteReg(CC2500_PKTLEN, sizeof(eeprom.bind));
+ 92a:	86 e0       	ldi	r24, 0x06	; 6
+ 92c:	63 e0       	ldi	r22, 0x03	; 3
+ 92e:	be d1       	rcall	.+892    	; 0xcac <cc2500WriteReg>
+  state.bindmode = true;
+ 930:	81 e0       	ldi	r24, 0x01	; 1
+ 932:	80 93 35 01 	sts	0x0135, r24
+  cc2500setPatableMax(0x7f);             // Sendeleistung runter
+ 936:	8f e7       	ldi	r24, 0x7F	; 127
+ 938:	ff d1       	rcall	.+1022   	; 0xd38 <cc2500setPatableMax>
+}
+ 93a:	08 95       	ret
+
+0000093c <txState>:
+uint8_t testlaenge;
+uint8_t sperre;
+#endif
+
+void txState(void)
+{
+ 93c:	1f 93       	push	r17
+  static enum transmitter txstate;
+  uint8_t anz;
+  bool res;
+
+  switch(txstate)
+ 93e:	80 91 00 01 	lds	r24, 0x0100
+ 942:	82 30       	cpi	r24, 0x02	; 2
+ 944:	09 f4       	brne	.+2      	; 0x948 <txState+0xc>
+ 946:	4d c0       	rjmp	.+154    	; 0x9e2 <txState+0xa6>
+ 948:	83 30       	cpi	r24, 0x03	; 3
+ 94a:	30 f4       	brcc	.+12     	; 0x958 <txState+0x1c>
+ 94c:	88 23       	and	r24, r24
+ 94e:	59 f0       	breq	.+22     	; 0x966 <txState+0x2a>
+ 950:	81 30       	cpi	r24, 0x01	; 1
+ 952:	09 f0       	breq	.+2      	; 0x956 <txState+0x1a>
+ 954:	84 c0       	rjmp	.+264    	; 0xa5e <txState+0x122>
+ 956:	18 c0       	rjmp	.+48     	; 0x988 <txState+0x4c>
+ 958:	83 30       	cpi	r24, 0x03	; 3
+ 95a:	09 f4       	brne	.+2      	; 0x95e <txState+0x22>
+ 95c:	4f c0       	rjmp	.+158    	; 0x9fc <txState+0xc0>
+ 95e:	84 30       	cpi	r24, 0x04	; 4
+ 960:	09 f0       	breq	.+2      	; 0x964 <txState+0x28>
+ 962:	7d c0       	rjmp	.+250    	; 0xa5e <txState+0x122>
+ 964:	69 c0       	rjmp	.+210    	; 0xa38 <txState+0xfc>
+  {
+  case Start:
+    sei();
+ 966:	78 94       	sei
+    if(checkKey())               // Taste prüfen
+ 968:	41 dc       	rcall	.-1918   	; 0x1ec <checkKey>
+ 96a:	88 23       	and	r24, r24
+ 96c:	11 f0       	breq	.+4      	; 0x972 <txState+0x36>
+      txstate = TxBindCheck;
+ 96e:	83 e0       	ldi	r24, 0x03	; 3
+ 970:	60 c0       	rjmp	.+192    	; 0xa32 <txState+0xf6>
+    else
+    {
+      OCR2A  = TELETIME;              // 3,003 ms
+ 972:	8c e5       	ldi	r24, 0x5C	; 92
+ 974:	80 93 b3 00 	sts	0x00B3, r24
+      cc2500WriteRegCheckIdle(CC2500_PKTLEN, sizeof(MessageData));
+ 978:	86 e0       	ldi	r24, 0x06	; 6
+ 97a:	66 e0       	ldi	r22, 0x06	; 6
+ 97c:	b8 d1       	rcall	.+880    	; 0xcee <cc2500WriteRegCheckIdle>
+      calibrateSlow();
+ 97e:	cc d1       	rcall	.+920    	; 0xd18 <calibrateSlow>
+      gotoIdle();                   // Wenn Daten empfangen auf Idle wechseln
+ 980:	c3 d1       	rcall	.+902    	; 0xd08 <gotoIdle>
+      setNextChanRx();            // Frequenz einstellen
+ 982:	7b de       	rcall	.-778    	; 0x67a <setNextChanRx>
+      txstate = RxCalc;           // Erstmal auf Empfang damit auch Kalibriert wird
+ 984:	82 e0       	ldi	r24, 0x02	; 2
+ 986:	55 c0       	rjmp	.+170    	; 0xa32 <txState+0xf6>
+    break;
+  case TxOn:                      // Daten senden
+#ifdef DEBUG
+    if((testsperre != state.txCount) && !sperre)
+#endif
+     res = cc2500_EnableTx();
+ 988:	16 dd       	rcall	.-1492   	; 0x3b6 <cc2500_EnableTx>
+ 98a:	98 2f       	mov	r25, r24
+      else
+        --sperre;
+      res = false;
+    }
+#endif
+    if(state.txCount >= 7)
+ 98c:	80 91 3b 01 	lds	r24, 0x013B
+ 990:	87 30       	cpi	r24, 0x07	; 7
+ 992:	80 f0       	brcs	.+32     	; 0x9b4 <txState+0x78>
+    {
+      state.txCount = 0;
+ 994:	10 92 3b 01 	sts	0x013B, r1
+      if(res)
+ 998:	99 23       	and	r25, r25
+ 99a:	19 f0       	breq	.+6      	; 0x9a2 <txState+0x66>
+        TxSend(true);                // Empfang wird im Interrupt aktiviert
+ 99c:	81 e0       	ldi	r24, 0x01	; 1
+ 99e:	44 df       	rcall	.-376    	; 0x828 <TxSend>
+ 9a0:	01 c0       	rjmp	.+2      	; 0x9a4 <txState+0x68>
+      else
+        setNext();
+ 9a2:	95 de       	rcall	.-726    	; 0x6ce <setNext>
+      OCR2A  = (TELETIME08 + CHANTIME + 1);
+ 9a4:	8d e8       	ldi	r24, 0x8D	; 141
+ 9a6:	80 93 b3 00 	sts	0x00B3, r24
+      txstate = RxCalc;
+ 9aa:	82 e0       	ldi	r24, 0x02	; 2
+ 9ac:	80 93 00 01 	sts	0x0100, r24
+      UDR0 = 'C';                  // Aufforderung Kanäle schicken
+ 9b0:	83 e4       	ldi	r24, 0x43	; 67
+ 9b2:	14 c0       	rjmp	.+40     	; 0x9dc <txState+0xa0>
+    }
+    else
+    {
+      ++state.txCount;
+ 9b4:	80 91 3b 01 	lds	r24, 0x013B
+ 9b8:	8f 5f       	subi	r24, 0xFF	; 255
+ 9ba:	80 93 3b 01 	sts	0x013B, r24
+      if(res)
+ 9be:	99 23       	and	r25, r25
+ 9c0:	19 f0       	breq	.+6      	; 0x9c8 <txState+0x8c>
+        TxSend(false);
+ 9c2:	80 e0       	ldi	r24, 0x00	; 0
+ 9c4:	31 df       	rcall	.-414    	; 0x828 <TxSend>
+ 9c6:	01 c0       	rjmp	.+2      	; 0x9ca <txState+0x8e>
+      else
+        setNext();
+ 9c8:	82 de       	rcall	.-764    	; 0x6ce <setNext>
+      OCR2A  = CHANTIME;
+ 9ca:	82 e4       	ldi	r24, 0x42	; 66
+ 9cc:	80 93 b3 00 	sts	0x00B3, r24
+      if(!state.newCommand)
+ 9d0:	80 91 38 01 	lds	r24, 0x0138
+ 9d4:	88 23       	and	r24, r24
+ 9d6:	09 f0       	breq	.+2      	; 0x9da <txState+0x9e>
+ 9d8:	40 c0       	rjmp	.+128    	; 0xa5a <txState+0x11e>
+        UDR0 = 'Q';
+ 9da:	81 e5       	ldi	r24, 0x51	; 81
+ 9dc:	80 93 c6 00 	sts	0x00C6, r24
+ 9e0:	3c c0       	rjmp	.+120    	; 0xa5a <txState+0x11e>
+    }
+    InterruptAct = false;
+    break;
+  case RxCalc:
+    sei();
+ 9e2:	78 94       	sei
+    OCR2A  = TELETIME02;
+ 9e4:	81 e1       	ldi	r24, 0x11	; 17
+ 9e6:	80 93 b3 00 	sts	0x00B3, r24
+    anz = cc2500IdleGetRXB();
+ 9ea:	6c d1       	rcall	.+728    	; 0xcc4 <cc2500IdleGetRXB>
+ 9ec:	18 2f       	mov	r17, r24
+    calibrateFast();
+ 9ee:	9b d1       	rcall	.+822    	; 0xd26 <calibrateFast>
+    stayInRx();                         // Auf Empfang bleiben auch wenn Daten kommen (für CCA)
+ 9f0:	83 d1       	rcall	.+774    	; 0xcf8 <stayInRx>
+//    cc2500WriteRegCheckIdle(CC2500_PKTLEN, sizeof(MessageData));
+    setNextChanRx();
+ 9f2:	43 de       	rcall	.-890    	; 0x67a <setNextChanRx>
+    TxReceive(anz);                     // Empfangsdaten auswerten
+ 9f4:	81 2f       	mov	r24, r17
+ 9f6:	22 dd       	rcall	.-1468   	; 0x43c <TxReceive>
+    txstate = TxOn;                     // Ein Durchlauf = 8*0,4c + 8*0,6c + 3 = 20,15 ms
+ 9f8:	81 e0       	ldi	r24, 0x01	; 1
+ 9fa:	1b c0       	rjmp	.+54     	; 0xa32 <txState+0xf6>
+    InterruptAct = false;
+    break;
+  case TxBindCheck:                     // Warten bis Taste losgelassen
+    sei();
+ 9fc:	78 94       	sei
+    if(!checkKey())                     // Wenn Taste losgelassen
+ 9fe:	f6 db       	rcall	.-2068   	; 0x1ec <checkKey>
+ a00:	88 23       	and	r24, r24
+ a02:	59 f5       	brne	.+86     	; 0xa5a <txState+0x11e>
+    {
+      if(Timer33ms > (5000 / 33))       // sehr langer Tastendruck (5s)
+ a04:	80 91 52 01 	lds	r24, 0x0152
+ a08:	90 91 53 01 	lds	r25, 0x0153
+ a0c:	88 39       	cpi	r24, 0x98	; 152
+ a0e:	91 05       	cpc	r25, r1
+ a10:	08 f0       	brcs	.+2      	; 0xa14 <txState+0xd8>
+        calcNewId();
+ a12:	4a dd       	rcall	.-1388   	; 0x4a8 <calcNewId>
+      setBindMode();
+ a14:	84 df       	rcall	.-248    	; 0x91e <setBindMode>
+      calibrateSlow();
+ a16:	80 d1       	rcall	.+768    	; 0xd18 <calibrateSlow>
+      setNextChanRx();
+ a18:	30 de       	rcall	.-928    	; 0x67a <setNextChanRx>
+      state.txCount = 1;                // damit Sender immer läuft
+ a1a:	81 e0       	ldi	r24, 0x01	; 1
+ a1c:	80 93 3b 01 	sts	0x013B, r24
+      SET_BIT(state.ledError, L_BIND_ON);
+ a20:	80 91 3c 01 	lds	r24, 0x013C
+ a24:	82 60       	ori	r24, 0x02	; 2
+ a26:	80 93 3c 01 	sts	0x013C, r24
+      OCR2A  = CHANTIME2;
+ a2a:	85 e8       	ldi	r24, 0x85	; 133
+ a2c:	80 93 b3 00 	sts	0x00B3, r24
+      txstate = TxOnBind;               // CHANTIME zum Senden
+ a30:	84 e0       	ldi	r24, 0x04	; 4
+ a32:	80 93 00 01 	sts	0x0100, r24
+ a36:	11 c0       	rjmp	.+34     	; 0xa5a <txState+0x11e>
+    }
+    InterruptAct = false;
+    break;
+  case TxOnBind:                        // Daten ins Senderegister
+    if(cc2500_EnableTx())                  // Sender aktivieren, Interrupt ein
+ a38:	be dc       	rcall	.-1668   	; 0x3b6 <cc2500_EnableTx>
+ a3a:	88 23       	and	r24, r24
+ a3c:	69 f0       	breq	.+26     	; 0xa58 <txState+0x11c>
+    {
+      if((cc2500WriteFIFOBlock((uint8_t *)&eeprom.bind, sizeof(eeprom.bind)) & CC2500_STATUS_STATE_BM) < CC2500_STATE_TX)
+ a3e:	8b e0       	ldi	r24, 0x0B	; 11
+ a40:	91 e0       	ldi	r25, 0x01	; 1
+ a42:	63 e0       	ldi	r22, 0x03	; 3
+ a44:	88 d1       	rcall	.+784    	; 0xd56 <cc2500WriteFIFOBlock>
+ a46:	90 e0       	ldi	r25, 0x00	; 0
+ a48:	80 77       	andi	r24, 0x70	; 112
+ a4a:	90 70       	andi	r25, 0x00	; 0
+ a4c:	80 97       	sbiw	r24, 0x20	; 32
+ a4e:	14 f4       	brge	.+4      	; 0xa54 <txState+0x118>
+        tx_error();
+ a50:	47 de       	rcall	.-882    	; 0x6e0 <tx_error>
+ a52:	03 c0       	rjmp	.+6      	; 0xa5a <txState+0x11e>
+      else
+        tx_ok();
+ a54:	4a dc       	rcall	.-1900   	; 0x2ea <tx_ok>
+ a56:	01 c0       	rjmp	.+2      	; 0xa5a <txState+0x11e>
+    }
+    else
+      setNext();
+ a58:	3a de       	rcall	.-908    	; 0x6ce <setNext>
+    InterruptAct = false;
+ a5a:	10 92 49 01 	sts	0x0149, r1
+//    state.InterruptAlive = true;
+    break;
+  }
+}
+ a5e:	1f 91       	pop	r17
+ a60:	08 95       	ret
+
+00000a62 <__vector_7>:
+  MCUSR = 0;
+  wdt_disable();
+}
+
+ISR(TIMER2_COMPA_vect)                 
+{                                                // Wenn außerhalb Interrupt auch spi läuft krachts
+ a62:	1f 92       	push	r1
+ a64:	0f 92       	push	r0
+ a66:	0f b6       	in	r0, 0x3f	; 63
+ a68:	0f 92       	push	r0
+ a6a:	11 24       	eor	r1, r1
+ a6c:	1f 93       	push	r17
+ a6e:	2f 93       	push	r18
+ a70:	3f 93       	push	r19
+ a72:	4f 93       	push	r20
+ a74:	5f 93       	push	r21
+ a76:	6f 93       	push	r22
+ a78:	7f 93       	push	r23
+ a7a:	8f 93       	push	r24
+ a7c:	9f 93       	push	r25
+ a7e:	af 93       	push	r26
+ a80:	bf 93       	push	r27
+ a82:	ef 93       	push	r30
+ a84:	ff 93       	push	r31
+  InterruptAct = true;
+ a86:	11 e0       	ldi	r17, 0x01	; 1
+ a88:	10 93 49 01 	sts	0x0149, r17
+  txState();
+ a8c:	57 df       	rcall	.-338    	; 0x93c <txState>
+  cc2500_Off();
+ a8e:	a9 db       	rcall	.-2222   	; 0x1e2 <cc2500_Off>
+  Heartbeat = true;
+ a90:	10 93 54 01 	sts	0x0154, r17
+}
+ a94:	ff 91       	pop	r31
+ a96:	ef 91       	pop	r30
+ a98:	bf 91       	pop	r27
+ a9a:	af 91       	pop	r26
+ a9c:	9f 91       	pop	r25
+ a9e:	8f 91       	pop	r24
+ aa0:	7f 91       	pop	r23
+ aa2:	6f 91       	pop	r22
+ aa4:	5f 91       	pop	r21
+ aa6:	4f 91       	pop	r20
+ aa8:	3f 91       	pop	r19
+ aaa:	2f 91       	pop	r18
+ aac:	1f 91       	pop	r17
+ aae:	0f 90       	pop	r0
+ ab0:	0f be       	out	0x3f, r0	; 63
+ ab2:	0f 90       	pop	r0
+ ab4:	1f 90       	pop	r1
+ ab6:	18 95       	reti
+
+00000ab8 <readWriteMemory>:
+  SET_BIT(UCSR0B, RXCIE0);                      // Interrupt ein
+}
+
+void readWriteMemory(void)
+{
+  if(sendMes.MemoryWord.tar == 0)               // eeprom
+ ab8:	90 91 48 01 	lds	r25, 0x0148
+ abc:	89 2f       	mov	r24, r25
+ abe:	8c 70       	andi	r24, 0x0C	; 12
+ ac0:	a9 f4       	brne	.+42     	; 0xaec <readWriteMemory+0x34>
+  {
+    if(sendMes.MemoryWord.wr)                   // schreiben
+ ac2:	90 ff       	sbrs	r25, 0
+ ac4:	13 c0       	rjmp	.+38     	; 0xaec <readWriteMemory+0x34>
+    {
+      if(sendMes.MemoryWord.size)
+ ac6:	91 ff       	sbrs	r25, 1
+ ac8:	0a c0       	rjmp	.+20     	; 0xade <readWriteMemory+0x26>
+        eeprom_write_word(sendMes.MemoryWord.adr, sendMes.MemoryWord.data);
+ aca:	60 91 43 01 	lds	r22, 0x0143
+ ace:	70 91 44 01 	lds	r23, 0x0144
+ ad2:	80 91 45 01 	lds	r24, 0x0145
+ ad6:	90 91 46 01 	lds	r25, 0x0146
+ ada:	3f d2       	rcall	.+1150   	; 0xf5a <__eewr_word_m48>
+ adc:	08 95       	ret
+      else
+        eeprom_write_byte(sendMes.MemoryByte.adr, sendMes.MemoryByte.data);
+ ade:	80 91 45 01 	lds	r24, 0x0145
+ ae2:	90 91 46 01 	lds	r25, 0x0146
+ ae6:	60 91 44 01 	lds	r22, 0x0144
+ aea:	29 d2       	rcall	.+1106   	; 0xf3e <__eewr_byte_m48>
+ aec:	08 95       	ret
+
+00000aee <__vector_18>:
+//  if(uartRead < sizeof(uartTxBuf))        // Noch Daten da
+//    SET_BIT(UCSR0B, UDRIE0);              // USART- Interrupt ein
+//}
+
+ISR(USART_RX_vect)
+{
+ aee:	1f 92       	push	r1
+ af0:	0f 92       	push	r0
+ af2:	0f b6       	in	r0, 0x3f	; 63
+ af4:	0f 92       	push	r0
+ af6:	11 24       	eor	r1, r1
+ af8:	2f 93       	push	r18
+ afa:	3f 93       	push	r19
+ afc:	4f 93       	push	r20
+ afe:	5f 93       	push	r21
+ b00:	6f 93       	push	r22
+ b02:	7f 93       	push	r23
+ b04:	8f 93       	push	r24
+ b06:	9f 93       	push	r25
+ b08:	af 93       	push	r26
+ b0a:	bf 93       	push	r27
+ b0c:	ef 93       	push	r30
+ b0e:	ff 93       	push	r31
+  static uint8_t chantemp, msbdata, i;
+  static enum uart rxstate;
+
+  RES_BIT(UCSR0B, RXCIE0);                      // Interrupt aus
+ b10:	80 91 c1 00 	lds	r24, 0x00C1
+ b14:	8f 77       	andi	r24, 0x7F	; 127
+ b16:	80 93 c1 00 	sts	0x00C1, r24
+  sei();
+ b1a:	78 94       	sei
+  uint8_t rxbuf = UDR0;
+ b1c:	30 91 c6 00 	lds	r19, 0x00C6
+  OCR0A = TCNT0 + 10;                           // Timeout 1,28 ms
+ b20:	86 b5       	in	r24, 0x26	; 38
+ b22:	86 5f       	subi	r24, 0xF6	; 246
+ b24:	87 bd       	out	0x27, r24	; 39
+  if(TIFR0 & (1 << OCF0A))
+ b26:	a9 9b       	sbis	0x15, 1	; 21
+ b28:	04 c0       	rjmp	.+8      	; 0xb32 <__vector_18+0x44>
+  {
+    rxstate = WaitToken;
+ b2a:	10 92 04 01 	sts	0x0104, r1
+//    SET_BIT(TIFR0, OCF0A);
+    TIFR0 = (1 << OCF0A);
+ b2e:	82 e0       	ldi	r24, 0x02	; 2
+ b30:	85 bb       	out	0x15, r24	; 21
+  }
+  switch(rxstate)
+ b32:	80 91 04 01 	lds	r24, 0x0104
+ b36:	83 30       	cpi	r24, 0x03	; 3
+ b38:	09 f4       	brne	.+2      	; 0xb3c <__vector_18+0x4e>
+ b3a:	47 c0       	rjmp	.+142    	; 0xbca <__vector_18+0xdc>
+ b3c:	84 30       	cpi	r24, 0x04	; 4
+ b3e:	30 f4       	brcc	.+12     	; 0xb4c <__vector_18+0x5e>
+ b40:	81 30       	cpi	r24, 0x01	; 1
+ b42:	39 f1       	breq	.+78     	; 0xb92 <__vector_18+0xa4>
+ b44:	82 30       	cpi	r24, 0x02	; 2
+ b46:	08 f0       	brcs	.+2      	; 0xb4a <__vector_18+0x5c>
+ b48:	3c c0       	rjmp	.+120    	; 0xbc2 <__vector_18+0xd4>
+ b4a:	0a c0       	rjmp	.+20     	; 0xb60 <__vector_18+0x72>
+ b4c:	85 30       	cpi	r24, 0x05	; 5
+ b4e:	09 f4       	brne	.+2      	; 0xb52 <__vector_18+0x64>
+ b50:	67 c0       	rjmp	.+206    	; 0xc20 <__vector_18+0x132>
+ b52:	85 30       	cpi	r24, 0x05	; 5
+ b54:	08 f4       	brcc	.+2      	; 0xb58 <__vector_18+0x6a>
+ b56:	53 c0       	rjmp	.+166    	; 0xbfe <__vector_18+0x110>
+ b58:	86 30       	cpi	r24, 0x06	; 6
+ b5a:	09 f0       	breq	.+2      	; 0xb5e <__vector_18+0x70>
+ b5c:	8b c0       	rjmp	.+278    	; 0xc74 <__vector_18+0x186>
+ b5e:	81 c0       	rjmp	.+258    	; 0xc62 <__vector_18+0x174>
+  {
+  case WaitToken:
+    if(rxbuf == 'C')
+ b60:	33 34       	cpi	r19, 0x43	; 67
+ b62:	11 f4       	brne	.+4      	; 0xb68 <__vector_18+0x7a>
+      rxstate = ReadChan;
+ b64:	81 e0       	ldi	r24, 0x01	; 1
+ b66:	1f c0       	rjmp	.+62     	; 0xba6 <__vector_18+0xb8>
+    else if(rxbuf == 'T')
+ b68:	34 35       	cpi	r19, 0x54	; 84
+ b6a:	11 f4       	brne	.+4      	; 0xb70 <__vector_18+0x82>
+      rxstate = ReadCommandMSB;
+ b6c:	84 e0       	ldi	r24, 0x04	; 4
+ b6e:	1b c0       	rjmp	.+54     	; 0xba6 <__vector_18+0xb8>
+    else if((rxbuf == 'F') && checkKey())
+ b70:	36 34       	cpi	r19, 0x46	; 70
+ b72:	09 f0       	breq	.+2      	; 0xb76 <__vector_18+0x88>
+ b74:	7f c0       	rjmp	.+254    	; 0xc74 <__vector_18+0x186>
+ b76:	3a db       	rcall	.-2444   	; 0x1ec <checkKey>
+ b78:	88 23       	and	r24, r24
+ b7a:	09 f4       	brne	.+2      	; 0xb7e <__vector_18+0x90>
+ b7c:	7b c0       	rjmp	.+246    	; 0xc74 <__vector_18+0x186>
+    {
+      wdt_disable();                // macht auch cli()
+ b7e:	88 e1       	ldi	r24, 0x18	; 24
+ b80:	0f b6       	in	r0, 0x3f	; 63
+ b82:	f8 94       	cli
+ b84:	80 93 60 00 	sts	0x0060, r24
+ b88:	10 92 60 00 	sts	0x0060, r1
+ b8c:	0f be       	out	0x3f, r0	; 63
+      flashProgram();
+ b8e:	14 d2       	rcall	.+1064   	; 0xfb8 <flashProgram>
+ b90:	71 c0       	rjmp	.+226    	; 0xc74 <__vector_18+0x186>
+    }
+    break;
+  case ReadChan:
+    UDR0 = 'A';
+ b92:	81 e4       	ldi	r24, 0x41	; 65
+ b94:	80 93 c6 00 	sts	0x00C6, r24
+    if(rxbuf & ~0x7)
+ b98:	83 2f       	mov	r24, r19
+ b9a:	88 7f       	andi	r24, 0xF8	; 248
+ b9c:	39 f0       	breq	.+14     	; 0xbac <__vector_18+0xbe>
+    {
+      i = 2;
+ b9e:	82 e0       	ldi	r24, 0x02	; 2
+ ba0:	80 93 05 01 	sts	0x0105, r24
+      rxstate = ReadDummy;
+ ba4:	86 e0       	ldi	r24, 0x06	; 6
+ ba6:	80 93 04 01 	sts	0x0104, r24
+ baa:	64 c0       	rjmp	.+200    	; 0xc74 <__vector_18+0x186>
+    }
+    else
+    {
+      if(rxbuf < chantemp)
+ bac:	80 91 07 01 	lds	r24, 0x0107
+ bb0:	38 17       	cp	r19, r24
+ bb2:	18 f4       	brcc	.+6      	; 0xbba <__vector_18+0xcc>
+        state.maxChan = chantemp + 1;           // Bedingt, dass die Kanäle aufsteigend reinkommen
+ bb4:	8f 5f       	subi	r24, 0xFF	; 255
+ bb6:	80 93 3a 01 	sts	0x013A, r24
+      chantemp = rxbuf;
+ bba:	30 93 07 01 	sts	0x0107, r19
+      rxstate = ReadMSB;
+ bbe:	82 e0       	ldi	r24, 0x02	; 2
+ bc0:	f2 cf       	rjmp	.-28     	; 0xba6 <__vector_18+0xb8>
+    }
+    break;
+  case ReadMSB:
+    msbdata = rxbuf;
+ bc2:	30 93 06 01 	sts	0x0106, r19
+    rxstate = ReadLSB;
+ bc6:	83 e0       	ldi	r24, 0x03	; 3
+ bc8:	ee cf       	rjmp	.-36     	; 0xba6 <__vector_18+0xb8>
+    break;
+  case ReadLSB:
+    UDR0 = 'A';
+ bca:	81 e4       	ldi	r24, 0x41	; 65
+ bcc:	80 93 c6 00 	sts	0x00C6, r24
+    output.chan_1us[chantemp] = (msbdata << 8) + rxbuf;
+ bd0:	20 91 07 01 	lds	r18, 0x0107
+ bd4:	e2 2f       	mov	r30, r18
+ bd6:	f0 e0       	ldi	r31, 0x00	; 0
+ bd8:	80 91 06 01 	lds	r24, 0x0106
+ bdc:	90 e0       	ldi	r25, 0x00	; 0
+ bde:	98 2f       	mov	r25, r24
+ be0:	88 27       	eor	r24, r24
+ be2:	83 0f       	add	r24, r19
+ be4:	91 1d       	adc	r25, r1
+ be6:	ee 0f       	add	r30, r30
+ be8:	ff 1f       	adc	r31, r31
+ bea:	ee 5e       	subi	r30, 0xEE	; 238
+ bec:	fe 4f       	sbci	r31, 0xFE	; 254
+ bee:	91 83       	std	Z+1, r25	; 0x01
+ bf0:	80 83       	st	Z, r24
+    if(chantemp == 3)
+ bf2:	23 30       	cpi	r18, 0x03	; 3
+ bf4:	e9 f5       	brne	.+122    	; 0xc70 <__vector_18+0x182>
+      output.ppmSync = 4;
+ bf6:	84 e0       	ldi	r24, 0x04	; 4
+ bf8:	80 93 32 01 	sts	0x0132, r24
+ bfc:	39 c0       	rjmp	.+114    	; 0xc70 <__vector_18+0x182>
+    rxstate = WaitToken;
+    break;
+  case ReadCommandMSB:
+    if(state.newCommand)        // Altes Kommando ist noch nicht weg
+ bfe:	80 91 38 01 	lds	r24, 0x0138
+ c02:	88 23       	and	r24, r24
+ c04:	11 f0       	breq	.+4      	; 0xc0a <__vector_18+0x11c>
+    {
+      i = 4;
+ c06:	84 e0       	ldi	r24, 0x04	; 4
+ c08:	cb cf       	rjmp	.-106    	; 0xba0 <__vector_18+0xb2>
+      rxstate = ReadDummy;
+    }
+    else
+    {
+      sendMes.Uart.b0 = rxbuf;
+ c0a:	3f 77       	andi	r19, 0x7F	; 127
+ c0c:	80 91 48 01 	lds	r24, 0x0148
+ c10:	80 78       	andi	r24, 0x80	; 128
+ c12:	83 2b       	or	r24, r19
+ c14:	80 93 48 01 	sts	0x0148, r24
+      i = 0;
+ c18:	10 92 05 01 	sts	0x0105, r1
+      rxstate = ReadCommand;
+ c1c:	85 e0       	ldi	r24, 0x05	; 5
+ c1e:	c3 cf       	rjmp	.-122    	; 0xba6 <__vector_18+0xb8>
+    }
+    break;
+  case ReadCommand:
+    if(!(i & 1))
+ c20:	90 91 05 01 	lds	r25, 0x0105
+ c24:	e9 2f       	mov	r30, r25
+ c26:	f0 e0       	ldi	r31, 0x00	; 0
+ c28:	90 fd       	sbrc	r25, 0
+ c2a:	03 c0       	rjmp	.+6      	; 0xc32 <__vector_18+0x144>
+      UDR0 = 'A';
+ c2c:	81 e4       	ldi	r24, 0x41	; 65
+ c2e:	80 93 c6 00 	sts	0x00C6, r24
+    sendMes.Uart.b[i++] = rxbuf;
+ c32:	ed 5b       	subi	r30, 0xBD	; 189
+ c34:	fe 4f       	sbci	r31, 0xFE	; 254
+ c36:	30 83       	st	Z, r19
+ c38:	89 2f       	mov	r24, r25
+ c3a:	8f 5f       	subi	r24, 0xFF	; 255
+ c3c:	80 93 05 01 	sts	0x0105, r24
+    if(i > 4)
+ c40:	85 30       	cpi	r24, 0x05	; 5
+ c42:	c0 f0       	brcs	.+48     	; 0xc74 <__vector_18+0x186>
+    {
+      if((sendMes.MemoryWord.type == 5) && (sendMes.MemoryWord.des == 0))
+ c44:	80 91 48 01 	lds	r24, 0x0148
+ c48:	80 77       	andi	r24, 0x70	; 112
+ c4a:	80 35       	cpi	r24, 0x50	; 80
+ c4c:	31 f4       	brne	.+12     	; 0xc5a <__vector_18+0x16c>
+ c4e:	80 91 47 01 	lds	r24, 0x0147
+ c52:	88 23       	and	r24, r24
+ c54:	11 f4       	brne	.+4      	; 0xc5a <__vector_18+0x16c>
+        readWriteMemory();
+ c56:	30 df       	rcall	.-416    	; 0xab8 <readWriteMemory>
+ c58:	0b c0       	rjmp	.+22     	; 0xc70 <__vector_18+0x182>
+      else
+        state.newCommand = true;
+ c5a:	81 e0       	ldi	r24, 0x01	; 1
+ c5c:	80 93 38 01 	sts	0x0138, r24
+ c60:	07 c0       	rjmp	.+14     	; 0xc70 <__vector_18+0x182>
+      rxstate = WaitToken;
+    }
+    break;
+  case ReadDummy:
+    --i;
+ c62:	80 91 05 01 	lds	r24, 0x0105
+ c66:	81 50       	subi	r24, 0x01	; 1
+ c68:	80 93 05 01 	sts	0x0105, r24
+    if(!i)
+ c6c:	88 23       	and	r24, r24
+ c6e:	11 f4       	brne	.+4      	; 0xc74 <__vector_18+0x186>
+      rxstate = WaitToken;
+ c70:	10 92 04 01 	sts	0x0104, r1
+    break;
+  }
+  cli();
+ c74:	f8 94       	cli
+  SET_BIT(UCSR0B, RXCIE0);                      // Interrupt ein
+ c76:	80 91 c1 00 	lds	r24, 0x00C1
+ c7a:	80 68       	ori	r24, 0x80	; 128
+ c7c:	80 93 c1 00 	sts	0x00C1, r24
+}
+ c80:	ff 91       	pop	r31
+ c82:	ef 91       	pop	r30
+ c84:	bf 91       	pop	r27
+ c86:	af 91       	pop	r26
+ c88:	9f 91       	pop	r25
+ c8a:	8f 91       	pop	r24
+ c8c:	7f 91       	pop	r23
+ c8e:	6f 91       	pop	r22
+ c90:	5f 91       	pop	r21
+ c92:	4f 91       	pop	r20
+ c94:	3f 91       	pop	r19
+ c96:	2f 91       	pop	r18
+ c98:	0f 90       	pop	r0
+ c9a:	0f be       	out	0x3f, r0	; 63
+ c9c:	0f 90       	pop	r0
+ c9e:	1f 90       	pop	r1
+ ca0:	18 95       	reti
+
+00000ca2 <cc2500ReadReg>:
+      cc2500Idle();
+}
+
+uint8_t cc2500ReadReg(uint8_t reg)
+{
+  SPI_MasterTransmit(reg | CC2500_READ_SINGLE);
+ ca2:	80 68       	ori	r24, 0x80	; 128
+ ca4:	63 da       	rcall	.-2874   	; 0x16c <SPI_MasterTransmit>
+  return(SPI_MasterTransmit(CC2500_SNOP));
+ ca6:	8d e3       	ldi	r24, 0x3D	; 61
+ ca8:	61 da       	rcall	.-2878   	; 0x16c <SPI_MasterTransmit>
+}
+ caa:	08 95       	ret
+
+00000cac <cc2500WriteReg>:
+  SPI_MasterTransmit(reg | CC2500_READ_BURST);
+  return(SPI_MasterTransmit(CC2500_SNOP));
+}
+
+uint8_t cc2500WriteReg(uint8_t reg, uint8_t c)
+{
+ cac:	1f 93       	push	r17
+ cae:	16 2f       	mov	r17, r22
+  SPI_MasterTransmit(reg & ~CC2500_READ_SINGLE);
+ cb0:	8f 77       	andi	r24, 0x7F	; 127
+ cb2:	5c da       	rcall	.-2888   	; 0x16c <SPI_MasterTransmit>
+  return(SPI_MasterTransmit(c));
+ cb4:	81 2f       	mov	r24, r17
+ cb6:	5a da       	rcall	.-2892   	; 0x16c <SPI_MasterTransmit>
+}
+ cb8:	1f 91       	pop	r17
+ cba:	08 95       	ret
+
+00000cbc <cc2500GetState>:
+  SPI_MasterTransmit(str);
+}
+
+uint8_t cc2500GetState(void)
+{
+  return(SPI_MasterTransmit(CC2500_SNOP) & CC2500_STATUS_STATE_BM);
+ cbc:	8d e3       	ldi	r24, 0x3D	; 61
+ cbe:	56 da       	rcall	.-2900   	; 0x16c <SPI_MasterTransmit>
+}
+ cc0:	80 77       	andi	r24, 0x70	; 112
+ cc2:	08 95       	ret
+
+00000cc4 <cc2500IdleGetRXB>:
+  if((SPI_MasterTransmit(CC2500_SIDLE) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
+    while(cc2500GetState() != CC2500_STATE_IDLE);   // Status lesen
+}
+
+uint8_t cc2500IdleGetRXB(void)
+{
+ cc4:	1f 93       	push	r17
+  uint8_t temp;
+  if(((temp = SPI_MasterTransmit(CC2500_SIDLE | CC2500_READ_SINGLE)) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
+ cc6:	86 eb       	ldi	r24, 0xB6	; 182
+ cc8:	51 da       	rcall	.-2910   	; 0x16c <SPI_MasterTransmit>
+ cca:	18 2f       	mov	r17, r24
+ ccc:	80 77       	andi	r24, 0x70	; 112
+ cce:	88 23       	and	r24, r24
+ cd0:	11 f0       	breq	.+4      	; 0xcd6 <cc2500IdleGetRXB+0x12>
+    while(cc2500GetState() != CC2500_STATE_IDLE);   // Status lesen
+ cd2:	f4 df       	rcall	.-24     	; 0xcbc <cc2500GetState>
+ cd4:	fc cf       	rjmp	.-8      	; 0xcce <cc2500IdleGetRXB+0xa>
+  return(temp & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM);
+}
+ cd6:	81 2f       	mov	r24, r17
+ cd8:	8f 70       	andi	r24, 0x0F	; 15
+ cda:	1f 91       	pop	r17
+ cdc:	08 95       	ret
+
+00000cde <cc2500Idle>:
+  cc2500_Off();
+}
+
+void cc2500Idle(void)
+{
+  if((SPI_MasterTransmit(CC2500_SIDLE) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
+ cde:	86 e3       	ldi	r24, 0x36	; 54
+ ce0:	45 da       	rcall	.-2934   	; 0x16c <SPI_MasterTransmit>
+ ce2:	80 77       	andi	r24, 0x70	; 112
+ ce4:	88 23       	and	r24, r24
+ ce6:	11 f0       	breq	.+4      	; 0xcec <cc2500Idle+0xe>
+    while(cc2500GetState() != CC2500_STATE_IDLE);   // Status lesen
+ ce8:	e9 df       	rcall	.-46     	; 0xcbc <cc2500GetState>
+ cea:	fc cf       	rjmp	.-8      	; 0xce4 <cc2500Idle+0x6>
+ cec:	08 95       	ret
+
+00000cee <cc2500WriteRegCheckIdle>:
+  return(SPI_MasterTransmit(c));
+}
+
+void cc2500WriteRegCheckIdle(uint8_t reg, uint8_t c)
+{
+  if((cc2500WriteReg(reg, c) & CC2500_STATUS_STATE_BM) != CC2500_STATE_IDLE)
+ cee:	de df       	rcall	.-68     	; 0xcac <cc2500WriteReg>
+ cf0:	80 77       	andi	r24, 0x70	; 112
+ cf2:	09 f0       	breq	.+2      	; 0xcf6 <cc2500WriteRegCheckIdle+0x8>
+      cc2500Idle();
+ cf4:	f4 df       	rcall	.-24     	; 0xcde <cc2500Idle>
+ cf6:	08 95       	ret
+
+00000cf8 <stayInRx>:
+  cc2500WriteRegCheckIdle(CC2500_MCSM1, pgm_read_byte(&cc2500InitValue[CC2500_MCSM1]) & ~0xc);
+}
+
+void stayInRx(void)
+{
+  cc2500WriteRegCheckIdle(CC2500_MCSM1, pgm_read_byte(&cc2500InitValue[CC2500_MCSM1]) | 0xc);
+ cf8:	eb e4       	ldi	r30, 0x4B	; 75
+ cfa:	f0 e0       	ldi	r31, 0x00	; 0
+ cfc:	e4 91       	lpm	r30, Z+
+ cfe:	ec 60       	ori	r30, 0x0C	; 12
+ d00:	87 e1       	ldi	r24, 0x17	; 23
+ d02:	6e 2f       	mov	r22, r30
+ d04:	f4 df       	rcall	.-24     	; 0xcee <cc2500WriteRegCheckIdle>
+}
+ d06:	08 95       	ret
+
+00000d08 <gotoIdle>:
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, (cc2500ReadReg(CC2500_FSCAL3) & ~0x20) | 0x20);
+}
+
+void gotoIdle(void)
+{
+  cc2500WriteRegCheckIdle(CC2500_MCSM1, pgm_read_byte(&cc2500InitValue[CC2500_MCSM1]) & ~0xc);
+ d08:	eb e4       	ldi	r30, 0x4B	; 75
+ d0a:	f0 e0       	ldi	r31, 0x00	; 0
+ d0c:	e4 91       	lpm	r30, Z+
+ d0e:	e3 7f       	andi	r30, 0xF3	; 243
+ d10:	87 e1       	ldi	r24, 0x17	; 23
+ d12:	6e 2f       	mov	r22, r30
+ d14:	ec df       	rcall	.-40     	; 0xcee <cc2500WriteRegCheckIdle>
+}
+ d16:	08 95       	ret
+
+00000d18 <calibrateSlow>:
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, cc2500ReadReg(CC2500_FSCAL3) & ~0x20);
+}
+
+void calibrateSlow(void)
+{
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, (cc2500ReadReg(CC2500_FSCAL3) & ~0x20) | 0x20);
+ d18:	83 e2       	ldi	r24, 0x23	; 35
+ d1a:	c3 df       	rcall	.-122    	; 0xca2 <cc2500ReadReg>
+ d1c:	68 2f       	mov	r22, r24
+ d1e:	60 62       	ori	r22, 0x20	; 32
+ d20:	83 e2       	ldi	r24, 0x23	; 35
+ d22:	e5 df       	rcall	.-54     	; 0xcee <cc2500WriteRegCheckIdle>
+}
+ d24:	08 95       	ret
+
+00000d26 <calibrateFast>:
+}
+
+void calibrateFast(void)	                   //Disable charge pump calibration stage when 0
+{
+
+  cc2500WriteRegCheckIdle(CC2500_FSCAL3, cc2500ReadReg(CC2500_FSCAL3) & ~0x20);
+ d26:	83 e2       	ldi	r24, 0x23	; 35
+ d28:	bc df       	rcall	.-136    	; 0xca2 <cc2500ReadReg>
+ d2a:	68 2f       	mov	r22, r24
+ d2c:	6f 7d       	andi	r22, 0xDF	; 223
+ d2e:	83 e2       	ldi	r24, 0x23	; 35
+ d30:	de df       	rcall	.-68     	; 0xcee <cc2500WriteRegCheckIdle>
+}
+ d32:	08 95       	ret
+
+00000d34 <cc2500CommandStrobe>:
+  SMARTRF_SETTING_TEST0         //    TEST0  2e
+};
+
+void cc2500CommandStrobe(uint8_t str)
+{
+  SPI_MasterTransmit(str);
+ d34:	1b da       	rcall	.-3018   	; 0x16c <SPI_MasterTransmit>
+}
+ d36:	08 95       	ret
+
+00000d38 <cc2500setPatableMax>:
+  while(n--)
+    *p++ =cc2500ReadReg(CC2500_RXFIFO);
+}
+
+void cc2500setPatableMax(uint8_t power)
+{
+ d38:	0f 93       	push	r16
+ d3a:	1f 93       	push	r17
+ d3c:	08 2f       	mov	r16, r24
+  uint8_t i;
+  SPI_MasterTransmit(CC2500_PATABLE | CC2500_WRITE_BURST);
+ d3e:	8e e7       	ldi	r24, 0x7E	; 126
+ d40:	15 da       	rcall	.-3030   	; 0x16c <SPI_MasterTransmit>
+ d42:	10 e0       	ldi	r17, 0x00	; 0
+  for(i = 0; i < 8; ++i)                 //// 8!!
+    SPI_MasterTransmit(power);
+ d44:	80 2f       	mov	r24, r16
+ d46:	12 da       	rcall	.-3036   	; 0x16c <SPI_MasterTransmit>
+
+void cc2500setPatableMax(uint8_t power)
+{
+  uint8_t i;
+  SPI_MasterTransmit(CC2500_PATABLE | CC2500_WRITE_BURST);
+  for(i = 0; i < 8; ++i)                 //// 8!!
+ d48:	1f 5f       	subi	r17, 0xFF	; 255
+ d4a:	18 30       	cpi	r17, 0x08	; 8
+ d4c:	d9 f7       	brne	.-10     	; 0xd44 <cc2500setPatableMax+0xc>
+    SPI_MasterTransmit(power);
+  cc2500_Off();
+ d4e:	49 da       	rcall	.-2926   	; 0x1e2 <cc2500_Off>
+}
+ d50:	1f 91       	pop	r17
+ d52:	0f 91       	pop	r16
+ d54:	08 95       	ret
+
+00000d56 <cc2500WriteFIFOBlock>:
+  cc2500_Off();                      // Burstzugriff rücksetzen
+  return(true);
+}
+
+uint8_t cc2500WriteFIFOBlock(uint8_t *p, uint8_t n)
+{
+ d56:	0f 93       	push	r16
+ d58:	1f 93       	push	r17
+ d5a:	cf 93       	push	r28
+ d5c:	df 93       	push	r29
+ d5e:	ec 01       	movw	r28, r24
+ d60:	16 2f       	mov	r17, r22
+  uint8_t ret = 0;
+  SPI_MasterTransmit(CC2500_WRITE_BURST | CC2500_TXFIFO);
+ d62:	8f e7       	ldi	r24, 0x7F	; 127
+ d64:	03 da       	rcall	.-3066   	; 0x16c <SPI_MasterTransmit>
+ d66:	00 e0       	ldi	r16, 0x00	; 0
+ d68:	04 c0       	rjmp	.+8      	; 0xd72 <cc2500WriteFIFOBlock+0x1c>
+  while(n--)
+    ret = SPI_MasterTransmit(*p++);
+ d6a:	89 91       	ld	r24, Y+
+ d6c:	ff d9       	rcall	.-3074   	; 0x16c <SPI_MasterTransmit>
+ d6e:	08 2f       	mov	r16, r24
+ d70:	11 50       	subi	r17, 0x01	; 1
+
+uint8_t cc2500WriteFIFOBlock(uint8_t *p, uint8_t n)
+{
+  uint8_t ret = 0;
+  SPI_MasterTransmit(CC2500_WRITE_BURST | CC2500_TXFIFO);
+  while(n--)
+ d72:	11 23       	and	r17, r17
+ d74:	d1 f7       	brne	.-12     	; 0xd6a <cc2500WriteFIFOBlock+0x14>
+    ret = SPI_MasterTransmit(*p++);
+  cc2500_Off();                      // Burstzugriff rücksetzen
+ d76:	35 da       	rcall	.-2966   	; 0x1e2 <cc2500_Off>
+  return(ret);
+}
+ d78:	80 2f       	mov	r24, r16
+ d7a:	df 91       	pop	r29
+ d7c:	cf 91       	pop	r28
+ d7e:	1f 91       	pop	r17
+ d80:	0f 91       	pop	r16
+ d82:	08 95       	ret
+
+00000d84 <cc2500ReadFIFOBlock>:
+  SPI_MasterTransmit(CC2500_READ_SINGLE | CC2500_RXFIFO);
+  return(SPI_MasterTransmit(CC2500_SNOP));
+}
+
+bool cc2500ReadFIFOBlock(uint8_t *p, uint8_t n)
+{
+ d84:	1f 93       	push	r17
+ d86:	cf 93       	push	r28
+ d88:	df 93       	push	r29
+ d8a:	ec 01       	movw	r28, r24
+ d8c:	16 2f       	mov	r17, r22
+  if(n != (SPI_MasterTransmit(CC2500_RXFIFO | CC2500_READ_BURST) & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM))
+ d8e:	8f ef       	ldi	r24, 0xFF	; 255
+ d90:	ed d9       	rcall	.-3110   	; 0x16c <SPI_MasterTransmit>
+ d92:	21 2f       	mov	r18, r17
+ d94:	30 e0       	ldi	r19, 0x00	; 0
+ d96:	90 e0       	ldi	r25, 0x00	; 0
+ d98:	8f 70       	andi	r24, 0x0F	; 15
+ d9a:	90 70       	andi	r25, 0x00	; 0
+ d9c:	28 17       	cp	r18, r24
+ d9e:	39 07       	cpc	r19, r25
+ da0:	39 f0       	breq	.+14     	; 0xdb0 <cc2500ReadFIFOBlock+0x2c>
+  {
+    cc2500_Off();                      // Burstzugriff rücksetzen
+ da2:	1f da       	rcall	.-3010   	; 0x1e2 <cc2500_Off>
+ da4:	80 e0       	ldi	r24, 0x00	; 0
+ da6:	08 c0       	rjmp	.+16     	; 0xdb8 <cc2500ReadFIFOBlock+0x34>
+    return(false);
+  }
+  while(n--)
+    *p++ = SPI_MasterTransmit(CC2500_SNOP);
+ da8:	8d e3       	ldi	r24, 0x3D	; 61
+ daa:	e0 d9       	rcall	.-3136   	; 0x16c <SPI_MasterTransmit>
+ dac:	89 93       	st	Y+, r24
+ dae:	11 50       	subi	r17, 0x01	; 1
+  if(n != (SPI_MasterTransmit(CC2500_RXFIFO | CC2500_READ_BURST) & CC2500_STATUS_FIFO_BYTES_AVAILABLE_BM))
+  {
+    cc2500_Off();                      // Burstzugriff rücksetzen
+    return(false);
+  }
+  while(n--)
+ db0:	11 23       	and	r17, r17
+ db2:	d1 f7       	brne	.-12     	; 0xda8 <cc2500ReadFIFOBlock+0x24>
+    *p++ = SPI_MasterTransmit(CC2500_SNOP);
+  cc2500_Off();                      // Burstzugriff rücksetzen
+ db4:	16 da       	rcall	.-3028   	; 0x1e2 <cc2500_Off>
+ db6:	81 e0       	ldi	r24, 0x01	; 1
+  return(true);
+}
+ db8:	df 91       	pop	r29
+ dba:	cf 91       	pop	r28
+ dbc:	1f 91       	pop	r17
+ dbe:	08 95       	ret
+
+00000dc0 <checkcc2500>:
+  cc2500_Off();                    // SS wegnehmen wegen Burst
+  cc2500setPatableMax(power);
+}
+
+bool checkcc2500(void)
+{
+ dc0:	1f 93       	push	r17
+ dc2:	cf 93       	push	r28
+ dc4:	df 93       	push	r29
+ dc6:	88 ee       	ldi	r24, 0xE8	; 232
+ dc8:	93 e0       	ldi	r25, 0x03	; 3
+    milliseconds can be achieved.
+ */
+void
+_delay_loop_2(uint16_t __count)
+{
+	__asm__ volatile (
+ dca:	28 ec       	ldi	r18, 0xC8	; 200
+ dcc:	30 e0       	ldi	r19, 0x00	; 0
+ dce:	f9 01       	movw	r30, r18
+ dd0:	31 97       	sbiw	r30, 0x01	; 1
+ dd2:	f1 f7       	brne	.-4      	; 0xdd0 <checkcc2500+0x10>
+		__ticks = (uint16_t) (__ms * 10.0);
+		while(__ticks)
+		{
+			// wait 1/10 ms
+			_delay_loop_2(((F_CPU) / 4e3) / 10);
+			__ticks --;
+ dd4:	01 97       	sbiw	r24, 0x01	; 1
+		__ticks = 1;
+	else if (__tmp > 65535)
+	{
+		//	__ticks = requested delay in 1/10 ms
+		__ticks = (uint16_t) (__ms * 10.0);
+		while(__ticks)
+ dd6:	d9 f7       	brne	.-10     	; 0xdce <checkcc2500+0xe>
+  prog_uint8_t *init = cc2500InitValue;
+  bool f = true;
+
+  _delay_ms(100);
+  SPI_MasterTransmit(CC2500_IOCFG2 | CC2500_READ_BURST);
+ dd8:	80 ec       	ldi	r24, 0xC0	; 192
+ dda:	c8 d9       	rcall	.-3184   	; 0x16c <SPI_MasterTransmit>
+ ddc:	c4 e3       	ldi	r28, 0x34	; 52
+ dde:	d0 e0       	ldi	r29, 0x00	; 0
+ de0:	11 e0       	ldi	r17, 0x01	; 1
+  do
+  {
+    if(SPI_MasterTransmit(0) != pgm_read_byte(init++))
+ de2:	80 e0       	ldi	r24, 0x00	; 0
+ de4:	c3 d9       	rcall	.-3194   	; 0x16c <SPI_MasterTransmit>
+ de6:	fe 01       	movw	r30, r28
+ de8:	21 96       	adiw	r28, 0x01	; 1
+ dea:	e4 91       	lpm	r30, Z+
+ dec:	8e 13       	cpse	r24, r30
+ dee:	10 e0       	ldi	r17, 0x00	; 0
+      f = false;
+  }
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 3));
+ df0:	80 e0       	ldi	r24, 0x00	; 0
+ df2:	ce 35       	cpi	r28, 0x5E	; 94
+ df4:	d8 07       	cpc	r29, r24
+ df6:	a8 f3       	brcs	.-22     	; 0xde2 <checkcc2500+0x22>
+  cc2500_Off();                    // SS wegnehmen wegen Burst
+ df8:	f4 d9       	rcall	.-3096   	; 0x1e2 <cc2500_Off>
+  SPI_MasterTransmit(CC2500_TEST2 | CC2500_READ_BURST);
+ dfa:	8c ee       	ldi	r24, 0xEC	; 236
+ dfc:	b7 d9       	rcall	.-3218   	; 0x16c <SPI_MasterTransmit>
+  do
+  {
+    if(SPI_MasterTransmit(0) != pgm_read_byte(init++))
+ dfe:	80 e0       	ldi	r24, 0x00	; 0
+ e00:	b5 d9       	rcall	.-3222   	; 0x16c <SPI_MasterTransmit>
+ e02:	fe 01       	movw	r30, r28
+ e04:	21 96       	adiw	r28, 0x01	; 1
+ e06:	e4 91       	lpm	r30, Z+
+ e08:	8e 13       	cpse	r24, r30
+ e0a:	10 e0       	ldi	r17, 0x00	; 0
+      f = false;
+  }
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
+ e0c:	80 e0       	ldi	r24, 0x00	; 0
+ e0e:	c1 36       	cpi	r28, 0x61	; 97
+ e10:	d8 07       	cpc	r29, r24
+ e12:	a8 f3       	brcs	.-22     	; 0xdfe <checkcc2500+0x3e>
+  cc2500_Off();                    // SS wegnehmen wegen Burst
+ e14:	e6 d9       	rcall	.-3124   	; 0x1e2 <cc2500_Off>
+  return f;
+}
+ e16:	81 2f       	mov	r24, r17
+ e18:	df 91       	pop	r29
+ e1a:	cf 91       	pop	r28
+ e1c:	1f 91       	pop	r17
+ e1e:	08 95       	ret
+
+00000e20 <SPI_MasterInit>:
+#include "ORC.h"
+
+void SPI_MasterInit(void)
+{
+  /* Set MOSI and SCK and SS output, all others input */
+  cc2500_Off();
+ e20:	e0 d9       	rcall	.-3136   	; 0x1e2 <cc2500_Off>
+//  SPSR = 0;
+  /* Enable SPI, Master, set clock rate fck/4 */
+  SPCR = (1<<SPE) | (1<<MSTR); // | (1<<SPR0);       //fck/16
+ e22:	80 e5       	ldi	r24, 0x50	; 80
+ e24:	8c bd       	out	0x2c, r24	; 44
+}
+ e26:	08 95       	ret
+
+00000e28 <cc2500_Reset>:
+
+void cc2500_Reset(void)
+{
+  cc2500CommandStrobe(CC2500_SRES);
+ e28:	80 e3       	ldi	r24, 0x30	; 48
+ e2a:	84 df       	rcall	.-248    	; 0xd34 <cc2500CommandStrobe>
+ e2c:	01 c0       	rjmp	.+2      	; 0xe30 <cc2500_Reset+0x8>
+  while(!(PINB & (1 << INP_B_SPI_MISO))) NOP();       // warten bis high
+ e2e:	00 00       	nop
+ e30:	1c 9b       	sbis	0x03, 4	; 3
+ e32:	fd cf       	rjmp	.-6      	; 0xe2e <cc2500_Reset+0x6>
+ e34:	01 c0       	rjmp	.+2      	; 0xe38 <cc2500_Reset+0x10>
+  while(PINB & (1 << INP_B_SPI_MISO)) NOP();          // warten bis low
+ e36:	00 00       	nop
+ e38:	1c 99       	sbic	0x03, 4	; 3
+ e3a:	fd cf       	rjmp	.-6      	; 0xe36 <cc2500_Reset+0xe>
+}
+ e3c:	08 95       	ret
+
+00000e3e <cc2500_Init>:
+
+void cc2500_Init(uint8_t power)
+{
+ e3e:	0f 93       	push	r16
+ e40:	1f 93       	push	r17
+ e42:	cf 93       	push	r28
+ e44:	df 93       	push	r29
+ e46:	08 2f       	mov	r16, r24
+  prog_uint8_t *init = cc2500InitValue;
+
+  SET_BIT(PORTB, OUT_B_SPI_SCK);
+ e48:	2d 9a       	sbi	0x05, 5	; 5
+  RES_BIT(PORTB, OUT_B_SPI_MOSI);
+ e4a:	2b 98       	cbi	0x05, 3	; 5
+  RES_BIT(PORTB, OUT_B_SPI_SS);
+ e4c:	2a 98       	cbi	0x05, 2	; 5
+    can be achieved.
+*/
+void
+_delay_loop_1(uint8_t __count)
+{
+	__asm__ volatile (
+ e4e:	1a e6       	ldi	r17, 0x6A	; 106
+ e50:	81 2f       	mov	r24, r17
+ e52:	8a 95       	dec	r24
+ e54:	f1 f7       	brne	.-4      	; 0xe52 <cc2500_Init+0x14>
+  _delay_us(40);                    // warten 40us
+  SPI_MasterInit();
+ e56:	e4 df       	rcall	.-56     	; 0xe20 <SPI_MasterInit>
+ e58:	1a 95       	dec	r17
+ e5a:	f1 f7       	brne	.-4      	; 0xe58 <cc2500_Init+0x1a>
+  _delay_us(40);                    // warten 40us
+  cc2500_Reset();
+ e5c:	e5 df       	rcall	.-54     	; 0xe28 <cc2500_Reset>
+  cc2500_Off();                         // SS wegnehmen
+ e5e:	c1 d9       	rcall	.-3198   	; 0x1e2 <cc2500_Off>
+
+  SPI_MasterTransmit(CC2500_IOCFG2 | CC2500_WRITE_BURST);
+ e60:	80 e4       	ldi	r24, 0x40	; 64
+ e62:	84 d9       	rcall	.-3320   	; 0x16c <SPI_MasterTransmit>
+ e64:	c4 e3       	ldi	r28, 0x34	; 52
+ e66:	d0 e0       	ldi	r29, 0x00	; 0
+ e68:	fe 01       	movw	r30, r28
+  do
+  {
+    SPI_MasterTransmit(pgm_read_byte(init++));
+ e6a:	21 96       	adiw	r28, 0x01	; 1
+ e6c:	e4 91       	lpm	r30, Z+
+ e6e:	8e 2f       	mov	r24, r30
+ e70:	7d d9       	rcall	.-3334   	; 0x16c <SPI_MasterTransmit>
+  }
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue) - 3));
+ e72:	80 e0       	ldi	r24, 0x00	; 0
+ e74:	ce 35       	cpi	r28, 0x5E	; 94
+ e76:	d8 07       	cpc	r29, r24
+ e78:	b8 f3       	brcs	.-18     	; 0xe68 <cc2500_Init+0x2a>
+  cc2500_Off();                    // SS wegnehmen wegen Burst
+ e7a:	b3 d9       	rcall	.-3226   	; 0x1e2 <cc2500_Off>
+  SPI_MasterTransmit(CC2500_TEST2 | CC2500_WRITE_BURST);
+ e7c:	8c e6       	ldi	r24, 0x6C	; 108
+ e7e:	76 d9       	rcall	.-3348   	; 0x16c <SPI_MasterTransmit>
+ e80:	fe 01       	movw	r30, r28
+  do
+  {
+    SPI_MasterTransmit(pgm_read_byte(init++));
+ e82:	21 96       	adiw	r28, 0x01	; 1
+ e84:	e4 91       	lpm	r30, Z+
+ e86:	8e 2f       	mov	r24, r30
+ e88:	71 d9       	rcall	.-3358   	; 0x16c <SPI_MasterTransmit>
+  }
+  while(init < (cc2500InitValue + sizeof(cc2500InitValue)));
+ e8a:	80 e0       	ldi	r24, 0x00	; 0
+ e8c:	c1 36       	cpi	r28, 0x61	; 97
+ e8e:	d8 07       	cpc	r29, r24
+ e90:	b8 f3       	brcs	.-18     	; 0xe80 <cc2500_Init+0x42>
+  cc2500_Off();                    // SS wegnehmen wegen Burst
+ e92:	a7 d9       	rcall	.-3250   	; 0x1e2 <cc2500_Off>
+  cc2500setPatableMax(power);
+ e94:	80 2f       	mov	r24, r16
+ e96:	50 df       	rcall	.-352    	; 0xd38 <cc2500setPatableMax>
+}
+ e98:	df 91       	pop	r29
+ e9a:	cf 91       	pop	r28
+ e9c:	1f 91       	pop	r17
+ e9e:	0f 91       	pop	r16
+ ea0:	08 95       	ret
+
+00000ea2 <__prologue_saves__>:
+ ea2:	2f 92       	push	r2
+ ea4:	3f 92       	push	r3
+ ea6:	4f 92       	push	r4
+ ea8:	5f 92       	push	r5
+ eaa:	6f 92       	push	r6
+ eac:	7f 92       	push	r7
+ eae:	8f 92       	push	r8
+ eb0:	9f 92       	push	r9
+ eb2:	af 92       	push	r10
+ eb4:	bf 92       	push	r11
+ eb6:	cf 92       	push	r12
+ eb8:	df 92       	push	r13
+ eba:	ef 92       	push	r14
+ ebc:	ff 92       	push	r15
+ ebe:	0f 93       	push	r16
+ ec0:	1f 93       	push	r17
+ ec2:	cf 93       	push	r28
+ ec4:	df 93       	push	r29
+ ec6:	cd b7       	in	r28, 0x3d	; 61
+ ec8:	de b7       	in	r29, 0x3e	; 62
+ eca:	ca 1b       	sub	r28, r26
+ ecc:	db 0b       	sbc	r29, r27
+ ece:	0f b6       	in	r0, 0x3f	; 63
+ ed0:	f8 94       	cli
+ ed2:	de bf       	out	0x3e, r29	; 62
+ ed4:	0f be       	out	0x3f, r0	; 63
+ ed6:	cd bf       	out	0x3d, r28	; 61
+ ed8:	09 94       	ijmp
+
+00000eda <__epilogue_restores__>:
+ eda:	2a 88       	ldd	r2, Y+18	; 0x12
+ edc:	39 88       	ldd	r3, Y+17	; 0x11
+ ede:	48 88       	ldd	r4, Y+16	; 0x10
+ ee0:	5f 84       	ldd	r5, Y+15	; 0x0f
+ ee2:	6e 84       	ldd	r6, Y+14	; 0x0e
+ ee4:	7d 84       	ldd	r7, Y+13	; 0x0d
+ ee6:	8c 84       	ldd	r8, Y+12	; 0x0c
+ ee8:	9b 84       	ldd	r9, Y+11	; 0x0b
+ eea:	aa 84       	ldd	r10, Y+10	; 0x0a
+ eec:	b9 84       	ldd	r11, Y+9	; 0x09
+ eee:	c8 84       	ldd	r12, Y+8	; 0x08
+ ef0:	df 80       	ldd	r13, Y+7	; 0x07
+ ef2:	ee 80       	ldd	r14, Y+6	; 0x06
+ ef4:	fd 80       	ldd	r15, Y+5	; 0x05
+ ef6:	0c 81       	ldd	r16, Y+4	; 0x04
+ ef8:	1b 81       	ldd	r17, Y+3	; 0x03
+ efa:	aa 81       	ldd	r26, Y+2	; 0x02
+ efc:	b9 81       	ldd	r27, Y+1	; 0x01
+ efe:	ce 0f       	add	r28, r30
+ f00:	d1 1d       	adc	r29, r1
+ f02:	0f b6       	in	r0, 0x3f	; 63
+ f04:	f8 94       	cli
+ f06:	de bf       	out	0x3e, r29	; 62
+ f08:	0f be       	out	0x3f, r0	; 63
+ f0a:	cd bf       	out	0x3d, r28	; 61
+ f0c:	ed 01       	movw	r28, r26
+ f0e:	08 95       	ret
+
+00000f10 <__eerd_block_m48>:
+ f10:	dc 01       	movw	r26, r24
+ f12:	86 2f       	mov	r24, r22
+
+00000f14 <__eerd_blraw_m48>:
+ f14:	e8 2f       	mov	r30, r24
+ f16:	f9 99       	sbic	0x1f, 1	; 31
+ f18:	fe cf       	rjmp	.-4      	; 0xf16 <__eerd_blraw_m48+0x2>
+ f1a:	12 bc       	out	0x22, r1	; 34
+ f1c:	05 c0       	rjmp	.+10     	; 0xf28 <__eerd_blraw_m48+0x14>
+ f1e:	e1 bd       	out	0x21, r30	; 33
+ f20:	f8 9a       	sbi	0x1f, 0	; 31
+ f22:	e3 95       	inc	r30
+ f24:	00 b4       	in	r0, 0x20	; 32
+ f26:	0d 92       	st	X+, r0
+ f28:	41 50       	subi	r20, 0x01	; 1
+ f2a:	c8 f7       	brcc	.-14     	; 0xf1e <__eerd_blraw_m48+0xa>
+ f2c:	08 95       	ret
+
+00000f2e <__eewr_block_m48>:
+ f2e:	dc 01       	movw	r26, r24
+ f30:	86 2f       	mov	r24, r22
+ f32:	02 c0       	rjmp	.+4      	; 0xf38 <__eewr_block_m48+0xa>
+ f34:	2d 91       	ld	r18, X+
+ f36:	04 d0       	rcall	.+8      	; 0xf40 <__eewr_r18_m48>
+ f38:	41 50       	subi	r20, 0x01	; 1
+ f3a:	e0 f7       	brcc	.-8      	; 0xf34 <__eewr_block_m48+0x6>
+ f3c:	08 95       	ret
+
+00000f3e <__eewr_byte_m48>:
+ f3e:	26 2f       	mov	r18, r22
+
+00000f40 <__eewr_r18_m48>:
+ f40:	f9 99       	sbic	0x1f, 1	; 31
+ f42:	fe cf       	rjmp	.-4      	; 0xf40 <__eewr_r18_m48>
+ f44:	1f ba       	out	0x1f, r1	; 31
+ f46:	12 bc       	out	0x22, r1	; 34
+ f48:	81 bd       	out	0x21, r24	; 33
+ f4a:	20 bd       	out	0x20, r18	; 32
+ f4c:	0f b6       	in	r0, 0x3f	; 63
+ f4e:	f8 94       	cli
+ f50:	fa 9a       	sbi	0x1f, 2	; 31
+ f52:	f9 9a       	sbi	0x1f, 1	; 31
+ f54:	0f be       	out	0x3f, r0	; 63
+ f56:	01 96       	adiw	r24, 0x01	; 1
+ f58:	08 95       	ret
+
+00000f5a <__eewr_word_m48>:
+ f5a:	f1 df       	rcall	.-30     	; 0xf3e <__eewr_byte_m48>
+ f5c:	27 2f       	mov	r18, r23
+ f5e:	f0 cf       	rjmp	.-32     	; 0xf40 <__eewr_r18_m48>
+
+00000f60 <_exit>:
+ f60:	f8 94       	cli
+
+00000f62 <__stop_program>:
+ f62:	ff cf       	rjmp	.-2      	; 0xf62 <__stop_program>
+
+Disassembly of section .bloader:
+
+00000fb8 <flashProgram>:
+
+  .global flashProgram
+  .section .bloader, "ax"
+
+flashProgram:
+  ldi   ZH, 0
+     fb8:	f0 e0       	ldi	r31, 0x00	; 0
+  ldi   ZL, 0
+     fba:	e0 e0       	ldi	r30, 0x00	; 0
+
+00000fbc <Write_page>:
+Write_page:
+Wrloop:
+  rcall Get_data
+     fbc:	18 d0       	rcall	.+48     	; 0xfee <Get_data>
+  mov   r0, r1
+     fbe:	01 2c       	mov	r0, r1
+  rcall Get_data
+     fc0:	16 d0       	rcall	.+44     	; 0xfee <Get_data>
+  ldi   r20, (1<<SELFPRGEN)
+     fc2:	41 e0       	ldi	r20, 0x01	; 1
+  rcall Do_spm
+     fc4:	0e d0       	rcall	.+28     	; 0xfe2 <Do_spm>
+  adiw  ZL, 2
+     fc6:	32 96       	adiw	r30, 0x02	; 2
+
+  mov   r24, ZL
+     fc8:	8e 2f       	mov	r24, r30
+  andi  r24, SPM_PAGESIZE-1            ; Wenn alle Bits 0
+     fca:	8f 73       	andi	r24, 0x3F	; 63
+  brne  Wrloop
+     fcc:	b9 f7       	brne	.-18     	; 0xfbc <Write_page>
+  ;
+  sbiw  ZL, 1
+     fce:	31 97       	sbiw	r30, 0x01	; 1
+  ; Page Erase
+  ldi   r20, (1<<PGERS) | (1<<SELFPRGEN)
+     fd0:	43 e0       	ldi	r20, 0x03	; 3
+  rcall Do_spm
+     fd2:	07 d0       	rcall	.+14     	; 0xfe2 <Do_spm>
+  ; execute Page Write
+  ldi   r20, (1<<PGWRT) | (1<<SELFPRGEN)
+     fd4:	45 e0       	ldi	r20, 0x05	; 5
+  rcall Do_spm
+     fd6:	05 d0       	rcall	.+10     	; 0xfe2 <Do_spm>
+  adiw  ZL, 1
+     fd8:	31 96       	adiw	r30, 0x01	; 1
+  mov   r24, ZH
+     fda:	8f 2f       	mov	r24, r31
+  subi  r24, (63 * SPM_PAGESIZE) / 256
+     fdc:	8f 50       	subi	r24, 0x0F	; 15
+  brne  Write_page
+     fde:	71 f7       	brne	.-36     	; 0xfbc <Write_page>
+
+00000fe0 <Return>:
+Return:
+  rjmp  __vector_default
+     fe0:	0f c8       	rjmp	.-4066   	; 0x0 <__heap_end>
+
+00000fe2 <Do_spm>:
+Do_spm:
+; check for previous SPM complete
+Wait_spm:
+  in    r16, _SFR_IO_ADDR(SPMCSR)
+     fe2:	07 b7       	in	r16, 0x37	; 55
+  sbrc  r16, SELFPRGEN
+     fe4:	00 fd       	sbrc	r16, 0
+  rjmp  Wait_spm
+     fe6:	fd cf       	rjmp	.-6      	; 0xfe2 <Do_spm>
+; SPM timed sequence
+  out   _SFR_IO_ADDR(SPMCSR), r20
+     fe8:	47 bf       	out	0x37, r20	; 55
+  spm
+     fea:	e8 95       	spm
+  ret
+     fec:	08 95       	ret
+
+00000fee <Get_data>:
+Get_data:
+  lds   r1, UCSR0A
+     fee:	10 90 c0 00 	lds	r1, 0x00C0
+  sbrs  r1, 7
+     ff2:	17 fe       	sbrs	r1, 7
+  rjmp  .-8
+     ff4:	fc cf       	rjmp	.-8      	; 0xfee <Get_data>
+  lds   r1, UDR0
+     ff6:	10 90 c6 00 	lds	r1, 0x00C6
+  sts   UDR0, ZL
+     ffa:	e0 93 c6 00 	sts	0x00C6, r30
+  ret
+     ffe:	08 95       	ret
