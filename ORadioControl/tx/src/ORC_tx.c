@@ -16,6 +16,7 @@
  * Version 0.1 :First connect
  * Version 0.5 :range check (over 1,5 km)
  * Version 1.0 :first fly
+ * Version 1.1 :no stack
  *
  * Sender läuft im festen Raster von 8 * 2,144 ms für die Datenübertragung zum Empfänger
  * und 1 * 3 ms für die Telemetrie vom Empfänger zum Sender = 20,15 ms Zykluszeit bei PPM
@@ -48,6 +49,7 @@ bugs:
 todo:
 done:
 Bitfelder entfernt, weil EEPROM- Speicher nicht kritisch, Flash ist wichtiger
+Kein Stack mehr erforderlich
 
  */
 
@@ -566,7 +568,7 @@ void TxSendcommand(MessageData *mes)
 
 void TxSendData(bool lastFlag)
 {
-  MessageCommand mes;
+  static MessageCommand mes;
 
   mes.type = 0x7;               // Kommando
   mes.rts = lastFlag;
@@ -622,7 +624,7 @@ void TxSendData(bool lastFlag)
 
 void copyTx(bool lastFlag, uint8_t type)
 {
-  MessageChan mes;
+  static MessageChan mes;
   uint8_t i;
   uint16_t high;
   high = 0;
@@ -760,7 +762,7 @@ bool cc2500_EnableTx(void)
     {
       SET_BIT(PORTB, OUT_B_CTX);
       sei();
-      SET_BIT(EIFR, INTF0);                          // Interruptflag löschen
+      EIFR = 1 << INTF0;                          // Interruptflag löschen
       SET_BIT(EIMSK, INT0);                           // Interrupt ein
       LEDGREEN_ON;
       return(true);

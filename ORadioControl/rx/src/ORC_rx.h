@@ -25,8 +25,7 @@ typedef struct t_EEData
   BindData      bind;
   FailSafeData  failSafe[MAXCHAN];
   uint8_t       outputOffset;        // Offset in ms um das die Ausgangsgruppen verschoben sind
-  uint8_t       pulsesDelay;         // Mindestabstand der Servoimpulse in ms (Sollte Kanalabhängig sein!)
-                                     // Eventuell reicht Bit aus für schnell/langsam
+  uint8_t       pulsesDelay[MAXCHAN];   // Mindestabstand der Servoimpulse in ms
   bool          txDisable;           //:1;
   bool          chanOff;            //:1;
 }__attribute__((packed)) EEData;
@@ -60,6 +59,7 @@ typedef struct t_State
   uint16_t  frameLost;            // Anzahl verlorener Frames
   int8_t    min;
   int8_t    max;
+  uint8_t   minAb;
 }__attribute__((packed)) State;
 
 typedef struct fastppm
@@ -79,7 +79,7 @@ typedef struct t_OutputData
   uint8_t   portCflg;
   uint8_t   portDflg;
   uint8_t   pulsesOffset;
-  uint8_t   pulsesTimer;
+  uint8_t   pulsesTimer[MAXCHAN];
 //  uint16_t  pulses2MHz[18];
 //  uint8_t   act;                  // Ringpuffer aktuelle Ausgabe
   uint8_t   idx;

@@ -15,7 +15,7 @@
  * Version 0.1 :First connect
  * Version 0.5 :range check (over 1,5 km)
  * Version 1.0 :first fly
- *
+ * Version 1.1 :optimized interrupts, reduce overflows
  *
 
 bugs:
@@ -35,6 +35,8 @@ Delay zu erreichen. Die Latenz kann bei PPM um 2 ms springen, weil das Sendemodu
 Master für das Timing ist. In der Telemetrielücke kann die Latenz auch auf 5 ms ansteigen.
 Bei UART- Input soll sich der Sender am Timing des Sendemoduls orientieren.
 Bitfelder entfernt, weil EEPROM- Speicher nicht kritisch, Flash ist wichtiger
+
+Kein Stackpointer mehr nötig (sollte wegen cli vermieden werden)
 */
 
 //PIN 1   PD3   INT1/OC2B/PCINT19                       CC2500 GDO2
@@ -95,7 +97,7 @@ Bitfelder entfernt, weil EEPROM- Speicher nicht kritisch, Flash ist wichtiger
 #define LED_OFF RES_BIT(PORTD, OUT_D_LED)
 #define LED_ON SET_BIT(PORTD, OUT_D_LED)
 
-#define INTERRUPTOFFSET (1500u - 12u)
+#define INTERRUPTOFFSET (1500u)                 // Mittelstellung Servos
 
 #include "ORC_rx.h"
 
@@ -122,26 +124,21 @@ void get_mcusr(void)
   wdt_disable();
 }
 
-ISR(INT0_vect, ISR_NOBLOCK)
+ISR(INT0_vect, ISR_NAKED)          // Heisse Konstruktion!
 {
+  asm volatile("push    r24");    // immer prüfen ob nur R24 verwendet wird
+  state.RxTimer = TCNT2;
+  sei();                          // Verlust zusätzlich 6 Clocks
   ReceiverInterrupt = true;
-  state.RxTimer = TCNT2;              // Unterbrechung durch Timer1 kann 2 inc Fehler auslösen
+  asm volatile(
+  "pop    r24""\n\t"
+  "reti":::"r24");
 }
 
 /**********************************/
 
 void warte(uint8_t t)           // 17
 {
-//  t -= 2;
-//  while(--t)
-//  {
-//    NOP();
-//    NOP();
-//    NOP();
-//    NOP();
-//  }
-//  NOP();
-
   asm volatile(
   "subi    r24, 0x02""\n\t"
   "subi    r24, 0x01""\n\t"
@@ -160,24 +157,24 @@ FASTPPM ppm;
 
 ISR(TIMER1_COMPA_vect)                  // pulse generation, resolution 1µs, Interrupt ist aus!
 {
-//  uint8_t x = OCR1AL + 0x30;
-//  while(TCNT1L < x);
   asm volatile(
-  "lds     r25, 0x0088""\n\t"          // OCR1AL - 0xc0 (-> +40
-  "subi    r25, 0xC0""\n\t"
+  "lds     r25, 0x0088""\n\t"           // OCR1AL
+  "subi    r25, -0x47""\n\t"            // + 0x47
   "lds     r24, 0x0084""\n\t"           // TCNT1L
-  "cp      r24, r25""\n\t"
-  "brcs    .-8""\n\t"
-  "lds     r25, 0x0084""\n\t"
-  "lds     r24, 0x0088""\n\t"
-  "subi    r25, 0x4a""\n\t"             // 3a
-  "sub     r25, r24""\n\t"
-  "andi    r25, 0x07""\n\t"
+  "sub     r24, r25""\n\t"
+  "brmi    .-8""\n\t"
+  "lds     r25, 0x0084""\n\t"           // TCNT1L
+  "lds     r24, 0x0088""\n\t"           // OCR1AL
+  "subi    r25, 0x47 + 2""\n\t"         // normal +4
+  "sub     r25, r24""\n\t"              // Differenz durch Sprungtabelle ausgleichen
+  "mov     r24, r25""\n\t"
+  "andi    r24, 0xf8""\n\t"
+  "brne    L_%= + 6""\n\t"              // Über- oder Unterlauf
+//  "andi    r25, 0x07""\n\t"
   "ldi     r30, lo8(pm(L_%=))""\n\t"
   "ldi     r31, hi8(pm(L_%=))""\n\t"
   "add     r30, r25""\n\t"
-//  "ldi     r25, 0""\n\t"
-  "adc     r31, r1""\n\t"  //adc     r31, r25
+  "adc     r31, r1""\n\t"
   "ijmp""\n\t"
   "L_%=: nop""\n\t"
   "nop""\n\t"
@@ -187,20 +184,18 @@ ISR(TIMER1_COMPA_vect)                  // pulse generation, resolution 1µs, In
   "nop""\n\t"
   "nop":::"r24","r25","r30","r31");
 
-  uint8_t c = TCNT1L - OCR1AL;
+  uint8_t c = TCNT1L; //- OCR1AL;          // 0x55
 
   uint8_t *p = &ppm.toggleC[output.idx];
   uint8_t c1,d1,c2,d2,c3,d3,c4,d4;
   c1 = *p;
   c2 = *(p + 1);                        // Hier wird auch eventuell Müll gelesen
   c3 = *(p + 2);                        // macht aber nichts
-  c4 = *(p + 3);
-//  p = &ppm.toggleD[output.idx];
+  c4 = *(p + 3);                        // Wichtig ist der immer gleiche Ablauf
   d1 = *(p + 4);
   d2 = *(p + 5);
   d3 = *(p + 6);
   d4 = *(p + 7);
-//  p = &ppm.nextdelay[output.idx];
 
   while(1)
   {
@@ -259,12 +254,11 @@ ISR(TIMER1_COMPA_vect)                  // pulse generation, resolution 1µs, In
     PINC = c4;
     break;
   }
-  bool receiverIntTemp = !state.RxTimer;      //   EIFR & (1 << INTF0);
+  bool receiverIntTemp = EIFR & (1 << INTF0);
+  TIMSK1 &= ~(1<<OCIE1A);         // PPM Interrupt aus
   sei();                          // Interrupt ein, jetzt kommen alle anderen Interrupts zum Zug
+  c -= OCR1AL;
   uint8_t i = output.idx;
-  if(receiverIntTemp && (state.RxTimer != 0))   // Empfängerinterrupt ist während cli() gekommen
-    --state.RxTimer;                            // Capturewert etwas korrigieren
-
   while(*(p + 8) && (i < 3))                    // Ende suchen
   {
     ++p;
@@ -273,13 +267,14 @@ ISR(TIMER1_COMPA_vect)                  // pulse generation, resolution 1µs, In
   ++i;
   if((ppm.raw[i] == 0) || (i > 3))              // prüfen ob noch was kommt
   {
-    TIMSK1 &= ~(1<<OCIE1A);           // Interrupt aus
+//    TIMSK1 &= ~(1<<OCIE1A);           // Interrupt aus
     TCCR1B = 0;                         // Timer aus
   }
   else
   {
     OCR1A = ppm.raw[i];
     output.idx = i;
+    TIMSK1 |= (1<<OCIE1A);           // Interrupt ein
   }
 
   if(output.latenzMin > c)
@@ -287,16 +282,19 @@ ISR(TIMER1_COMPA_vect)                  // pulse generation, resolution 1µs, In
   if(output.latenzMax < c)
     output.latenzMax = c;
 
-  static uint8_t tes;
-  if(TCNT1L > tes)
-    tes = TCNT1L;
+  if(receiverIntTemp)                           // Empfängerinterrupt ist während cli() gekommen
+    --state.RxTimer;                            // Capturewert etwas korrigieren
+
+//  static uint8_t tes;
+//  if(TCNT1L > tes)
+//    tes = TCNT1L;
 }
 
 void setupPulses(bool highGroup)
 {
   uint8_t i, y;
 
-  if(TIMSK1 & (1<<OCIE1A))                // läuft noch
+  if(TIMSK1 & (1<<OCIE1A))                // läuft noch 
     return;
 
   uint8_t Cflag;
@@ -304,6 +302,10 @@ void setupPulses(bool highGroup)
 
   if(!highGroup)
   {
+    output.pulsesOffset = 0;
+    if(!(output.portCflg & ((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2)
+        | (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4))))
+      return;
     Cflag = (output.portCflg & ((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2)
         | (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4)))
         | ~((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2) | (1 << OUT_C_CHANNEL3)   // Alle Nichtausgänge auf C setzen
@@ -316,11 +318,18 @@ void setupPulses(bool highGroup)
     ppm.toggleC[3] = (1 << OUT_C_CHANNEL4) & Cflag;
     ppm.toggleD[0] = 0;
     ppm.toggleD[1] = 0;
-    output.pulsesOffset = eeprom.outputOffset;         // Versatz zwischen den Gruppen
-    output.pulsesTimer = 0;
+    output.pulsesTimer[0] = 0;
+    output.pulsesTimer[1] = 0;
+    output.pulsesTimer[2] = 0;
+    output.pulsesTimer[3] = 0;
+    output.portCflg &= ~((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2)
+            | (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4));
   }
   else
   {
+    if(!(output.portCflg & ((1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6)))
+        && !(output.portDflg & ((1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8))))
+      return;
     Cflag = (output.portCflg & ((1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6)))
         | ~((1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2) | (1 << OUT_C_CHANNEL3)
         | (1 << OUT_C_CHANNEL4) | (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6));
@@ -333,7 +342,12 @@ void setupPulses(bool highGroup)
     ppm.toggleC[3] = 0;
     ppm.toggleD[0] = (1 << OUT_D_CHANNEL7) & Dflag;
     ppm.toggleD[1] = (1 << OUT_D_CHANNEL8) & Dflag;
-
+    output.pulsesTimer[4] = 0;
+    output.pulsesTimer[5] = 0;
+    output.pulsesTimer[6] = 0;
+    output.pulsesTimer[7] = 0;
+    output.portCflg &= ~((1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6));
+    output.portDflg = 0;
   }
   ppm.toggleD[2] = 0;
   ppm.toggleD[3] = 0;
@@ -345,7 +359,7 @@ void setupPulses(bool highGroup)
       temp = output.chan_1us[i + 4];
     else
       temp = output.chan_1us[i];
-    ppm.raw[i] = (temp + INTERRUPTOFFSET) * 8;   // Mit Pulslänge füllen
+    ppm.raw[i] = temp * 8 + (INTERRUPTOFFSET * 8 - 116);   // Mit Pulslänge füllen
   }
   for(i = 0;i < 3;++i)            // qsort
   {
@@ -374,7 +388,7 @@ void setupPulses(bool highGroup)
       ppm.toggleD[i + 1] |= ppm.toggleD[i];
       ppm.raw[i] = 0;             // ungültig markieren
     }
-    if(delaytemp > 20)     // kürzeste Zeit zwischen 2 Interrupts
+    if(delaytemp > state.minAb)     // kürzeste Zeit zwischen 2 Interrupts
       ppm.nextdelay[i] = 0;
     else
       ppm.nextdelay[i] = (uint8_t)delaytemp;
@@ -610,8 +624,10 @@ bool readBindData(void)
   {
     eeprom.bind.id = mes.data.id;
     eeprom.bind.step = mes.data.step;
-    if(eeprom.pulsesDelay == 0xff)
-      eeprom.pulsesDelay = 15;                  // Default mindestens 15 ms Delay
+    uint8_t i;
+    for(i = 0;i < MAXCHAN;++i)
+      if(eeprom.pulsesDelay[i] == 0xff)
+        eeprom.pulsesDelay[i] = 15;                  // Default mindestens 15 ms Delay
     if(eeprom.outputOffset == 0xff)
     {
       eeprom.outputOffset = 10;                 // Default 10 ms Versatz
@@ -626,12 +642,12 @@ bool readBindData(void)
     return(false);
 }
 
-void getFailSafe(void)
+void getFailSafe(void)          // FailSafe- Werte beim Einschalten als Default übernehmen
 {
   uint8_t i;
   for(i = 0;i < MAXCHAN;++i)
   {
-    if(!eeprom.failSafe[i].failSafeMode)
+    if(!eeprom.failSafe[i].failSafeMode)        // Nur Kanäle mit Hold oder On
     {
       uint16_t t = eeprom.failSafe[i].failSafePos;
       if(t & 0x400)                 // Auf zulässige Werte begrenzen
@@ -686,17 +702,17 @@ void tstFailSafe(void)                  // Alle 20 ms
   for(i = 0;i < 2;++i)
   {
     if(state.groupTimer[i] < 0xff)
-      ++state.groupTimer[i];
-    if(state.groupTimer[i] == 2)
-      if(state.frameLost < 0xffff)
-        ++state.frameLost;
+      ++state.groupTimer[i];            // Zählt Zeit seit letzter Datenaktualisierung (in 20ms Schritten)
+    if(state.groupTimer[i] == 2)        // 2 = 40ms
+      if(state.frameLost < 0xffff)      // Wenn nach 40ms keine neue Daten -> Frame verloren
+        ++state.frameLost;              // Zählt aber nur einmal, wenn nichts mehr empfangen wird
   }
 
   for(i = 0;i < MAXCHAN;++i)
   {
-    if((!eeprom.failSafe[i].failSafeMode)
-      && (state.groupTimer[i / 4] > eeprom.failSafe[i].failSafeDelay + 1)
-      && (eeprom.failSafe[i].failSafeDelay != 0xff))      // macht keinen Sinn
+    if((!eeprom.failSafe[i].failSafeMode)                       // On oder Hold
+      && (state.groupTimer[i / 4] > eeprom.failSafe[i].failSafeDelay + 1)  // Zeit abgelaufen
+      && (eeprom.failSafe[i].failSafeDelay != 0xff))      // kein Hold
     {
       uint16_t t = eeprom.failSafe[i].failSafePos;
       if(t & 0x400)                 // Auf zulässige Werte begrenzen
@@ -707,20 +723,6 @@ void tstFailSafe(void)                  // Alle 20 ms
     }
   }
 }
-
-//void setOutputTimer(uint8_t t)
-//{
-//  uint8_t i;
-//  uint16_t w;
-//  for(i = 0;i < MAXCHAN;++i)
-//  {
-//    w = output.timer[i] + t;
-//    if(w > 0xff)
-//      output.timer[i] = 0xff;
-//    else
-//      output.timer[i] = w;
-//  }
-//}
 
 volatile uint16_t xy;
 
@@ -744,7 +746,7 @@ void copyChan(Message *mes, uint8_t x)
 
 bool readData(void)
 {
-  Message mes;
+  static Message mes;
 
   if(cc2500ReadFIFOBlock((uint8_t *)&mes, sizeof(mes)) && (mes.crcOk))          // CRC ok
   {
@@ -768,19 +770,44 @@ bool readData(void)
         {
           copyChan(&mes, 0);
           state.groupTimer[0] = 0;
-          output.portCflg |= (1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2)
-              | (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4);
+          uint8_t flgtmp = output.portCflg;
+          if(output.pulsesTimer[0] > eeprom.pulsesDelay[0])
+            flgtmp |= (1 << OUT_C_CHANNEL1);
+          if(output.pulsesTimer[1] > eeprom.pulsesDelay[1])
+            flgtmp |= (1 << OUT_C_CHANNEL2);
+          if(output.pulsesTimer[2] > eeprom.pulsesDelay[2])
+            flgtmp |= (1 << OUT_C_CHANNEL3);
+          if(output.pulsesTimer[3] > eeprom.pulsesDelay[3])
+            flgtmp |= (1 << OUT_C_CHANNEL4);
+          output.portCflg = flgtmp;
+
+//          output.portCflg |= (1 << OUT_C_CHANNEL1) | (1 << OUT_C_CHANNEL2)
+//              | (1 << OUT_C_CHANNEL3) | (1 << OUT_C_CHANNEL4);
         }
         else if(type & 1)
         {
           copyChan(&mes, 4);
           state.groupTimer[1] = 0;
-          output.portCflg |= (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6);
-          output.portDflg = (1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8);
+          uint8_t flgtmp = output.portCflg;
+          if(output.pulsesTimer[4] > eeprom.pulsesDelay[4])
+            flgtmp |= (1 << OUT_C_CHANNEL5);
+          if(output.pulsesTimer[5] > eeprom.pulsesDelay[5])
+            flgtmp |= (1 << OUT_C_CHANNEL6);
+          output.portCflg = flgtmp;
+          flgtmp = output.portDflg;
+          if(output.pulsesTimer[6] > eeprom.pulsesDelay[6])
+            flgtmp |= (1 << OUT_D_CHANNEL7);
+          if(output.pulsesTimer[7] > eeprom.pulsesDelay[7])
+            flgtmp |= (1 << OUT_D_CHANNEL8);
+          output.portDflg = flgtmp;
+
+
+//          output.portCflg |= (1 << OUT_C_CHANNEL5) | (1 << OUT_C_CHANNEL6);
+//          output.portDflg = (1 << OUT_D_CHANNEL7) | (1 << OUT_D_CHANNEL8);
 
         }
       }
-      if((type == 4) && (output.pulsesTimer > eeprom.pulsesDelay))
+      if((type == 4) && (output.pulsesOffset > eeprom.outputOffset + 2)) // obere Gruppe erst ausgeben
         setupPulses(false);
     }
     else if(type == 5)  // eeprom
@@ -828,7 +855,7 @@ void writeTelemetrie(uint16_t sensor, uint16_t value)
 
 void sendTelemetrie(void)  // wird etwas später gesendet, + 0,5ms
 {
-  Telemetrie mes;
+  static Telemetrie mes;
 
 //  setNextChanCheckIdle();
   RES_BIT(EIMSK, INT0);                    // INT0 aus
@@ -1222,7 +1249,9 @@ void rxState(void)
     else
       setNextChanGoRx(1);
 
-    SET_BIT(EIFR, INTF0);
+//    SET_BIT(EIFR, INTF0);
+    EIFR = 1 << INTF0;
+
     SET_BIT(EIMSK, INT0);                    // INT0 ein
 
     rxstate = Main;
@@ -1231,64 +1260,42 @@ void rxState(void)
   }
 }
 
-void checkPulsesHigh(void)
-{
-  uint8_t i;
-  if(output.pulsesOffset)
-    if(!(--output.pulsesOffset))
-    {
-      setupPulses(true);
-      for(i = 4;i < MAXCHAN;++i)
-      {
-        if(eeprom.failSafe[i].failSafeMode)
-        {
-          switch(i)
-          {
-          case 4:
-            output.portCflg &= ~(1 << OUT_C_CHANNEL5);
-            break;
-          case 5:
-            output.portCflg &= ~(1 << OUT_C_CHANNEL6);
-            break;
-          case 6:
-            output.portDflg &= ~(1 << OUT_D_CHANNEL7);
-            break;
-          case 7:
-            output.portDflg &= ~(1 << OUT_D_CHANNEL8);
-            break;
-          }
-        }
-      }
-    }
-}
-
-// Könnte auch früher erfolgen, wenn neue Daten da sind und der letzte PPM- Sync ausgefallen ist
-// Aber wenn die PPM- Syncs schon über 20 ms auseinanderliegen bringt das nicht viel
-void checkPulsesLow(void)
+void checkPulses(void)
 {
   uint8_t i;
 
-  ++output.pulsesTimer;
-  if(output.pulsesTimer > 25)           // Spätestens nach 25 ms Servos ansteuern
+  for(i = 0;i < MAXCHAN;++i)
   {
-    setupPulses(false);
-    for(i = 0;i < 4;++i)
+    ++output.pulsesTimer[i];
+    if(output.pulsesTimer[i] > 25)           // Spätestens nach 25 ms Servos ansteuern
     {
-      if(eeprom.failSafe[i].failSafeMode)
+      if(!eeprom.failSafe[i].failSafeMode)
       {
         switch(i)
         {
         case 0:
-          output.portCflg &= ~(1 << OUT_C_CHANNEL1);
+          output.portCflg |= (1 << OUT_C_CHANNEL1);
           break;
         case 1:
-          output.portCflg &= ~(1 << OUT_C_CHANNEL2);
+          output.portCflg |= (1 << OUT_C_CHANNEL2);
           break;
         case 2:
-          output.portCflg &= ~(1 << OUT_C_CHANNEL3);
+          output.portCflg |= (1 << OUT_C_CHANNEL3);
           break;
         case 3:
-          output.portCflg &= ~(1 << OUT_C_CHANNEL4);
+          output.portCflg |= (1 << OUT_C_CHANNEL4);
+          break;
+        case 4:
+          output.portCflg |= (1 << OUT_C_CHANNEL5);
+          break;
+        case 5:
+          output.portCflg |= (1 << OUT_C_CHANNEL6);
+          break;
+        case 6:
+          output.portDflg |= (1 << OUT_D_CHANNEL7);
+          break;
+        case 7:
+          output.portDflg |= (1 << OUT_D_CHANNEL8);
           break;
         }
       }
@@ -1339,7 +1346,7 @@ int __attribute__((naked)) main(void)
 // Timer1 8MHz   Servoausgänge
   TCCR1A = 0;
   TCCR1B = 0;
-  OCR1B = (INTERRUPTOFFSET + 0x3ff + 12u) * 8;            // Wenn PPM- Signal ~2,5ms überschreitet ist es ganz schlecht
+  OCR1B = (INTERRUPTOFFSET + 0x3ff) * 8;            // Wenn PPM- Signal ~2,5ms überschreitet ist es ganz schlecht
 
 //  TCCR1B = (1 << WGM12) | (1 << CS10);     // CTC OCR1A, 8MHz
 //  TCNT1 = 0;
@@ -1362,6 +1369,7 @@ int __attribute__((naked)) main(void)
   EIMSK = 0;
 
 //  EIFR = 0xff;
+  state.minAb = 0x17;
 
   eeprom_read_block(&eeprom, 0, sizeof(eeprom));
   cc2500_Init(0xff);
@@ -1370,18 +1378,19 @@ int __attribute__((naked)) main(void)
   cc2500WriteReg(CC2500_SYNC0,(unsigned char)eeprom.bind.id);
   cc2500WriteReg(CC2500_SYNC1,(unsigned char)(eeprom.bind.id >> 8));
   set_sleep_mode(SLEEP_MODE_IDLE);
-  getFailSafe();
   wdt_enable(WDTO_30MS);
   LED_OFF;
   output.latenzMin = 0xff;
 
-  SET_BIT(EIFR, INTF0);
+  EIFR = 1 << INTF0;
   SET_BIT(EIMSK, INT0);                    // INT0 ein
 
   TIFR2 = (1 << OCF2A);
 //  SET_BIT(TIFR2, OCF2A);
   ReceiverInterrupt = false;
   sei();
+  getFailSafe();                // FailSafe- Werte als Default, damit die Servos bei Einschalten nicht weglaufen
+  setupPulses(false);
   while(1){
     cc2500_Off();
     sei();
@@ -1400,19 +1409,23 @@ int __attribute__((naked)) main(void)
       TIFR0 = (1 << OCF0B);
       OCR0B += (F_CPU * 10 / 1024 / 9765);
       ++FailSafeTimer;
-      if(FailSafeTimer > 20)            // Nach 20 ms Ausgänge abschalten, bei denen Failsafe off
+      if(FailSafeTimer > 20)
       {
         FailSafeTimer = 0;
         tstFailSafe();
       }
-      checkPulsesHigh();
-      checkPulsesLow();                   // Steuert spätestens nach 25 ms Ausgänge an
+      checkPulses();
+      if(++output.pulsesOffset > 25)
+        setupPulses(false);
+      if(output.pulsesOffset == eeprom.outputOffset)         // Versatz zwischen den Gruppen
+        setupPulses(true);
 
       if((TIFR1 & (1 << OCF1B)) && (state.ppmOverflow < 0xff))
       {
         ++state.ppmOverflow;
 //        SET_BIT(TIFR1, OCF1B);
         TIFR1 = (1 << OCF1B);
+        ++state.minAb;
       }
     }
     if(TIFR0 & (1 << OCF0A))
